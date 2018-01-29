@@ -2,8 +2,15 @@
 An Azure CLI extension that provides command alias functionality. It aims to enhance Azure CLI usuability and improve developer productivity.
 
 ## Developing
-1. Make sure your machine is configured [as follow](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine) and your virtual environment is activated:
-2. Run the following:
+1. Set up your Azure CLI development environment:
+```bash
+$ git clone https://github.com/chewong/azure-cli
+$ cd azure-cli
+$ git checkout az-alias-prototype
+```
+Extra code in azure-cli-core are requirement to incorporate the alias extension, however, it is not available in [Azure/azure-cli](https://github.com/Azure/azure-cli) yet. Therefore, you need to check out the `az-alias-prototype` branch from chewong version of `azure-cli`, configure your machine [as follow](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine) and make sure your virtual environment is activated.
+
+2. Set up the extension
 ```bash
 $ git clone https://github.com/chewong/azure-cli-alias-extension.git
 $ cd azure-cli-alias-extension
