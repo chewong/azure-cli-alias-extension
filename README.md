@@ -8,9 +8,9 @@ $ git clone https://github.com/chewong/azure-cli
 $ cd azure-cli
 $ git checkout az-alias-prototype
 ```
-Extra code in azure-cli-core are requirement to incorporate the alias extension, however, it is not available in [Azure/azure-cli](https://github.com/Azure/azure-cli) yet. Therefore, you need to check out the `az-alias-prototype` branch from chewong version of `azure-cli`, configure your machine [as follow](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine) and make sure your virtual environment is activated.
+Extra code in azure-cli-core are required to incorporate the alias extension, however, it is not available in [Azure/azure-cli](https://github.com/Azure/azure-cli) yet. Therefore, you need to check out the `az-alias-prototype` branch from chewong version of `azure-cli`, configure your machine [as follow](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine), and make sure your virtual environment is activated.
 
-2. Set up the extension
+2. Set up the extension:
 ```bash
 $ git clone https://github.com/chewong/azure-cli-alias-extension.git
 $ cd azure-cli-alias-extension

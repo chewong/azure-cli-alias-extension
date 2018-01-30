@@ -8,6 +8,7 @@ import re
 
 from knack.log import get_logger
 from knack.util import CLIError
+from six.moves.configparser import ConfigParser, DuplicateSectionError, NoSectionError, NoOptionError
 
 from azure.cli.core._environment import get_config_dir
 
@@ -17,31 +18,31 @@ GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_FILE_NAME)
 
 PLACEHOLDER_REGEX = r'\s*{\d+}'
 PLACEHOLDER_SPLIT_REGEX = r'\s*{\d+\.split\(((\'.*\')|(".*"))\)\[\d+\]}'
-ENV_VAR_REGEX = r'\$[a-zA-Z][a-zA-Z0-9]*'
+ENV_VAR_REGEX = r'\$[a-zA-Z][a-zA-Z0-9_]*'
 QUOTES_REGEX = r'^[\'|\"]|[\'|\"]$'
 
-COLLISION_WARNING = '\'%s\' is currently mapped to \'%s\' in alias configuration.'
-INCONSISTENT_INDEXING_ERROR = 'Inconsistent placeholder indexing in alias command.'
+COLLISION_WARNING = '\'%s\' is currently mapped to \'%s\' in alias configuration'
+INCONSISTENT_INDEXING_ERROR = 'Inconsistent placeholder indexing in alias command'
 RECURSIVE_ALIAS_ERROR = 'Potentially recursive alias: \'{}\' is associated by another alias'
 DEBUG_MSG = 'Alias Transfromer: Took %.3f seconds to transform %s to %s'
+READ_ERROR_MSG = 'Unable to read section %s, and/or its command'
+DUP_SECTION_ERROR = 'It seems like there are duplicated alias in your configuration file'
 
 logger = get_logger(__name__)
 
 
-class AliasManager:
+class AliasManager(object):
 
     def __init__(self, **kwargs):
-        from six.moves import configparser
-
-        self.alias_table = configparser.ConfigParser()
         try:
+            self.alias_table = ConfigParser()
             if not os.path.exists(GLOBAL_ALIAS_PATH):
                 with open(GLOBAL_ALIAS_PATH, 'w') as alias_config_file:
                     self.alias_table.write(alias_config_file)
-
             self.alias_table.read(GLOBAL_ALIAS_PATH)
-        except configparser.DuplicateSectionError:
-            pass
+        except DuplicateSectionError:
+            logger.debug(DUP_SECTION_ERROR)
+            self.alias_table.read()
 
         self.kwargs = kwargs
         self.reserved_commands = self.kwargs.get('reserved_commands', [])
@@ -59,9 +60,11 @@ class AliasManager:
         for alias_index, alias in alias_iter:
             full_alias = self.get_full_alias(alias)
             num_pos_args = AliasManager.count_positional_args(full_alias)
-            if full_alias in self.alias_table:
-                cmd_derived_from_alias = self.alias_table[full_alias].get('command', alias)
-            else:
+
+            try:
+                cmd_derived_from_alias = self.alias_table.get(full_alias, 'command')
+            except (NoSectionError, NoOptionError):
+                logger.debug(READ_ERROR_MSG, full_alias)
                 cmd_derived_from_alias = alias
 
             # If we have an alias collision, DO NOT transform it and simply append it to transformed_commands
@@ -128,12 +131,11 @@ class AliasManager:
         if collided:
             self.bypass_recursive_check_cmd.add(alias)
             self.reserved_commands = collided
-            return True
-        return False
+        return bool(collided)
 
     def get_full_alias(self, query):
         """ Return the full alias (with the placeholders, if any) given a search query """
-        if query in self.alias_table:
+        if query in self.alias_table.sections():
             return query
         return next((section for section in self.alias_table.sections() if section.split()[0] == query), '')
 
