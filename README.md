@@ -34,7 +34,12 @@ whl              azure-cli-alias-extension  0.0.1
 ```
 
 ## Testing
-Coming soon...
+ Also, you need to point your `$PYTHONPATH` to `env/lib/python3.6/site-packages` and `src/azure-cli-core` from your `azure-cli` folder for unit tests to work.
+
+```bash
+export PYTHONPATH="${AUZRE_CLI_DIR}/env/lib/python3.6/site-packages:${AUZRE_CLI_DIR}/src/azure-cli-core:${PYTHONPATH}"
+```
+Remove the above two paths when everything is finished.
 
 ## References
 [Extension Authoring](https://github.com/Azure/azure-cli/blob/dev/doc/extensions/authoring.md)
