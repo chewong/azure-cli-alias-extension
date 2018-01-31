@@ -1,5 +1,5 @@
 # azure-cli-alias-extension
-An Azure CLI extension that provides command alias functionality. It aims to enhance Azure CLI usuability and improve developer productivity.
+An Azure CLI extension that provides command alias functionality. It aims to enhance Azure CLI usuability and improve developer productivity. For detailed specificaition of this feature, please visit [here](https://gist.github.com/chewong/2afb67374d700b34015d146f63a79b15).
 
 ## Developing
 1. Set up your Azure CLI development environment:
