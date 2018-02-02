@@ -15,6 +15,7 @@ QUOTES_REGEX = r'^[\'|\"]|[\'|\"]$'
 
 COLLISION_WARNING = 'The following alias collided with a reserved command in the CLI: {}'
 INCONSISTENT_INDEXING_ERROR = 'Inconsistent placeholder indexing in alias command'
-RECURSIVE_ALIAS_ERROR = 'Potentially recursive alias: \'{}\' is associated by another alias'
+RECURSIVE_ALIAS_ERROR = 'Potentially recursive alias: \'{}\' is associated with another alias'
 PARSE_ERROR = 'Error parsing the configuration file'
 IGNORE_CONFIG_MSG = 'Ignoring the alias configuration file...'
+DEBUG_MSG = 'Alias Transfromer: Transformed args to %s in %.3fs'

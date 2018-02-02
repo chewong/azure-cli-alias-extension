@@ -6,10 +6,8 @@
 from knack import events
 from knack.log import get_logger
 
-
 from azure.cli.core import AzCommandsLoader
-
-DEBUG_MSG = 'Alias Transfromer: Transformed args to %s in %.3fs'
+from azext_alias._const import DEBUG_MSG
 
 logger = get_logger(__name__)
 
@@ -41,11 +39,11 @@ def alias_event_handler(_, **kwargs):
     start_time = timeit.default_timer()
     args = kwargs.get('args')
     alias_manager = AliasManager(**kwargs)
+
     # [:] will keep the reference of the original args
     args[:] = alias_manager.transform(args)
 
     elapsed_time = timeit.default_timer() - start_time
     logger.debug(DEBUG_MSG, args, elapsed_time)
-
 
 COMMAND_LOADER_CLS = AliasExtensionLoader
