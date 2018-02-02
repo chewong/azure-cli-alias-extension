@@ -5,29 +5,23 @@
 
 import os
 import re
+import hashlib
 
 from knack.log import get_logger
 from knack.util import CLIError
-from six.moves.configparser import ConfigParser, DuplicateSectionError, NoSectionError, NoOptionError, DuplicateOptionError
-import hashlib
+from six.moves.configparser import ConfigParser, DuplicateSectionError, DuplicateOptionError, ParsingError
 
-from azure.cli.core._environment import get_config_dir
-
-GLOBAL_CONFIG_DIR = get_config_dir()
-ALIAS_FILE_NAME = 'alias'
-ALIAS_HASH_FILE_NAME = 'alias.sha1'
-GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_FILE_NAME)
-GLOBAL_ALIAS_HASH_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_HASH_FILE_NAME)
-
-PLACEHOLDER_REGEX = r'\s*{\d+}'
-PLACEHOLDER_SPLIT_REGEX = r'\s*{\d+\.split\(((\'.*\')|(".*"))\)\[\d+\]}'
-ENV_VAR_REGEX = r'\$[a-zA-Z][a-zA-Z0-9_]*'
-QUOTES_REGEX = r'^[\'|\"]|[\'|\"]$'
-
-COLLISION_WARNING = '\'%s\' is a reserved command in the CLI, but is currently mapped to \'%s\' in alias configuration'
-INCONSISTENT_INDEXING_ERROR = 'Inconsistent placeholder indexing in alias command'
-RECURSIVE_ALIAS_ERROR = 'Potentially recursive alias: \'{}\' is associated by another alias'
-PARSE_ERROR = 'Error parsing the configuration file'
+from azext_alias._const import (
+    GLOBAL_ALIAS_PATH,
+    GLOBAL_ALIAS_HASH_PATH,
+    PLACEHOLDER_REGEX,
+    ENV_VAR_REGEX,
+    QUOTES_REGEX,
+    COLLISION_WARNING,
+    INCONSISTENT_INDEXING_ERROR,
+    RECURSIVE_ALIAS_ERROR,
+    PARSE_ERROR,
+    IGNORE_CONFIG_MSG)
 
 logger = get_logger(__name__)
 
@@ -48,21 +42,24 @@ class AliasManager(object):
         self.load_alias_hash()
 
         # Only load the entire command table if it detects changes in the alias config
-        # (CONFIG_NEED_VALIDATION) or it previously had collided aliases (CONFIG_COLLIDED)
         if self.detect_alias_config_change():
             self.load_full_command_table()
             self.build_collision_table()
 
     def load_alias_table(self):
+        """ Load (create, if not exist) the alias config file """
         try:
+            # w+ creates the alias config file if it does not exist
             open_mode = 'r+' if os.path.exists(GLOBAL_ALIAS_PATH) else 'w+'
             with open(GLOBAL_ALIAS_PATH, open_mode) as alias_config_file:
                 self.alias_config_str = alias_config_file.read()
             self.alias_table.read(GLOBAL_ALIAS_PATH)
-        except (DuplicateSectionError, DuplicateOptionError):
+        except (DuplicateSectionError, DuplicateOptionError, ParsingError):
             self.alias_table.clear()
 
     def load_alias_hash(self):
+        """ Load (create, if not exist) the alias hash file """
+        # w+ creates the alias hash file if it does not exist
         open_mode = 'r+' if os.path.exists(GLOBAL_ALIAS_HASH_PATH) else 'w+'
         with open(GLOBAL_ALIAS_HASH_PATH, open_mode) as alias_config_hash_file:
             self.alias_config_hash = alias_config_hash_file.read()
@@ -72,10 +69,12 @@ class AliasManager(object):
         Return False if the alias configuration file has not been changed since the last run.
         Otherwise, return True.
         """
+        # Do not load the entire command table if there is a parse error
         if self.parse_error():
             return False
 
         alias_config_sha1 = hashlib.sha1(self.alias_config_str.encode('utf-8')).hexdigest()
+        # Overwrite the old hash with the new one
         if alias_config_sha1 != self.alias_config_hash:
             self.alias_config_hash = alias_config_sha1
             return True
@@ -83,10 +82,13 @@ class AliasManager(object):
 
     def transform(self, args):
         """ Transform any aliases in args to their respective commands """
-        # If we have an alias collision, DO NOT transform it and simply append it to transformed_commands
+        # If we have an alias collision or parse error,
+        # do not perform anything and simply return the original input args
         if self.collided_alias or self.parse_error():
-            logger.warning(COLLISION_WARNING if self.collided_alias else PARSE_ERROR)
-            # Write an empty hash
+            logger.warning(COLLISION_WARNING.format(self.collided_alias) if self.collided_alias else PARSE_ERROR)
+            logger.warning(IGNORE_CONFIG_MSG)
+
+            # Write an empty hash so next run will check the config file against the entire command table again
             self.write_alias_config_hash(True)
             return args
 
@@ -105,7 +107,7 @@ class AliasManager(object):
             if num_pos_args:
                 # Take arguments indexed from i to i + num_pos_args and inject
                 # them as positional arguments into the command
-                pos_args_iter = self.pos_args_iter(args, alias_index, num_pos_args)
+                pos_args_iter = AliasManager.pos_args_iter(args, alias_index, num_pos_args)
                 for placeholder, pos_arg in pos_args_iter:
                     if placeholder not in cmd_derived_from_alias:
                         raise CLIError(INCONSISTENT_INDEXING_ERROR)
@@ -129,6 +131,10 @@ class AliasManager(object):
         return transformed_commands
 
     def build_collision_table(self):
+        """
+        Check every word in each alias, check, and build if the word collided with a reserved command.
+        If there is a collision, the word will be appended to self.collided_alias
+        """
         for alias in self.alias_table.sections():
             self.collision_regex = r'^'
             for word in alias.split():
@@ -181,21 +187,6 @@ class AliasManager(object):
         if load_cmd_tbl_func:
             self.reserved_commands = load_cmd_tbl_func([])
 
-    def error(self, error_str):
-        raise CLIError(error_str)
-
-    def pos_args_iter(self, args, start_index, num_pos_args):
-        """
-        Generate an tuple iterator ([0], [1]) where the [0] is the positional argument
-        placeholder and [1] is the argument value. e.g. ('{0}', pos_arg_1) -> ('{1}', pos_arg_2) -> ...
-        """
-        pos_args = args[start_index: start_index + num_pos_args]
-        if len(pos_args) != num_pos_args:
-            raise CLIError(INCONSISTENT_INDEXING_ERROR)
-
-        for i, pos_arg in enumerate(pos_args):
-            yield ('{{{}}}'.format(i), pos_arg)
-
     def post_transform(self, args):
         """
         Inject environment variables and remove leading and trailing quotes
@@ -220,13 +211,32 @@ class AliasManager(object):
         return post_transform_commands
 
     def write_alias_config_hash(self, empty_hash=False):
+        """
+        Write self.alias_config_hash to the alias hash file.
+        An empty hash means that we need to validate the hash file in the next run
+        """
         with open(GLOBAL_ALIAS_HASH_PATH, 'w') as alias_config_hash_file:
-            alias_config_hash_file.seek(0)
-            alias_config_hash_file.truncate()
             alias_config_hash_file.write('' if empty_hash else self.alias_config_hash)
 
     def parse_error(self):
+        """
+        There is a parse error if there are strings inside the alias
+        config file but there is no alias loaded in self.alias_table
+        """
         return not self.alias_table.sections() and self.alias_config_str
+
+    @staticmethod
+    def pos_args_iter(args, start_index, num_pos_args):
+        """
+        Generate an tuple iterator ([0], [1]) where the [0] is the positional argument
+        placeholder and [1] is the argument value. e.g. ('{0}', pos_arg_1) -> ('{1}', pos_arg_2) -> ...
+        """
+        pos_args = args[start_index: start_index + num_pos_args]
+        if len(pos_args) != num_pos_args:
+            raise CLIError(INCONSISTENT_INDEXING_ERROR)
+
+        for i, pos_arg in enumerate(pos_args):
+            yield ('{{{}}}'.format(i), pos_arg)
 
     @staticmethod
     def count_positional_args(arg):
