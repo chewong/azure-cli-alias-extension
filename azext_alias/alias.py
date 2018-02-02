@@ -9,7 +9,7 @@ import hashlib
 
 from knack.log import get_logger
 from knack.util import CLIError
-from six.moves.configparser import ConfigParser, DuplicateSectionError, DuplicateOptionError, ParsingError
+from six.moves.configparser import ConfigParser
 
 from azext_alias._const import (
     GLOBAL_ALIAS_PATH,
@@ -54,8 +54,8 @@ class AliasManager(object):
             with open(GLOBAL_ALIAS_PATH, open_mode) as alias_config_file:
                 self.alias_config_str = alias_config_file.read()
             self.alias_table.read(GLOBAL_ALIAS_PATH)
-        except (DuplicateSectionError, DuplicateOptionError, ParsingError):
-            self.alias_table.clear()
+        except Exception:  # pylint: disable=broad-except
+            self.alias_table = ConfigParser()
 
     def load_alias_hash(self):
         """ Load (create, if not exist) the alias hash file """
