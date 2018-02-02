@@ -92,10 +92,11 @@ class AliasManager(object):
                 return CONFIG_INVALID
             elif alias_config_sha1 == previous_hash[:40]:
                 if previous_hash[40] == CONFIG_COLLIDED:
-                     self.build_collision_table(previous_hash[42])
+                     self.build_collision_table(previous_hash[42:])
                 return previous_hash[40]
             else:
                 alias_hash_file.seek(0)
+                alias_hash_file.truncate()
                 alias_hash_file.write(alias_config_sha1)
                 return CONFIG_NEED_VALIDATION
 
@@ -119,11 +120,7 @@ class AliasManager(object):
                 logger.warning(COLLISION_WARNING, alias, cmd_derived_from_alias)
                 continue
 
-            if not num_pos_args and alias != cmd_derived_from_alias:
-                # Truncate the list of reserved commands based on the command derived from alias
-                self.collision_regex = self.collision_regex.replace(alias.lower(), cmd_derived_from_alias.lower())
-                self.reserved_commands = self.get_truncated_reserved_commands()
-            elif num_pos_args:
+            if num_pos_args:
                 # Take arguments indexed from i to i + num_pos_args and inject
                 # them as positional arguments into the command
                 pos_args_iter = self.pos_args_iter(args, alias_index, num_pos_args)
@@ -149,11 +146,15 @@ class AliasManager(object):
 
         return transformed_commands
 
-    def build_collision_table(self):
-        for alias in self.alias_table.sections():
-            self.collision_regex = r'^'
-            for word in alias.split():
-                self.check_collision(word)
+    def build_collision_table(self, collision_str=''):
+        if collision_str:
+            for s in collision_str.split(','):
+                self.collided_alias.add(s)
+        else:
+            for alias in self.alias_table.sections():
+                self.collision_regex = r'^'
+                for word in alias.split():
+                    self.check_collision(word)
 
     def check_collision(self, word):
         """
@@ -178,7 +179,6 @@ class AliasManager(object):
 
         if collided:
             self.collided_alias.add(word)
-            self.reserved_commands = collided
         return bool(collided)
 
     def get_full_alias(self, query):
@@ -207,6 +207,7 @@ class AliasManager(object):
         with open(GLOBAL_ALIAS_HASH_PATH, 'r+') as alias_hash_file:
             # Start writing right after the 40-digit hash
             alias_hash_file.seek(40)
+            alias_hash_file.truncate()
 
             if config_status:
                 alias_hash_file.write(config_status)
