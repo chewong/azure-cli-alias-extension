@@ -3,7 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-from knack import events
 from knack.log import get_logger
 
 from azure.cli.core import AzCommandsLoader
@@ -23,7 +22,7 @@ class AliasExtensionLoader(AzCommandsLoader):
                                                    min_profile='2017-03-10-profile',
                                                    custom_command_type=example_custom)
 
-        self.cli_ctx.register_event(events.EVENT_INVOKER_PRE_TRUNCATE_CMD_TBL, alias_event_handler)
+        self.cli_ctx.register_event('CommandInvoker.OnPreTruncateCommandTable', alias_event_handler)
 
     def load_command_table(self, args):
         return {}

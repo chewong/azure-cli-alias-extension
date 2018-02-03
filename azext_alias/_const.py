@@ -5,8 +5,6 @@ from azure.cli.core._environment import get_config_dir
 GLOBAL_CONFIG_DIR = get_config_dir()
 ALIAS_FILE_NAME = 'alias'
 ALIAS_HASH_FILE_NAME = 'alias.sha1'
-GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_FILE_NAME)
-GLOBAL_ALIAS_HASH_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_HASH_FILE_NAME)
 
 PLACEHOLDER_REGEX = r'\s*{\d+}'
 PLACEHOLDER_SPLIT_REGEX = r'\s*{\d+\.split\(((\'.*\')|(".*"))\)\[\d+\]}'

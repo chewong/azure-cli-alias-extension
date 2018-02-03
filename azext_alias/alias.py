@@ -9,11 +9,13 @@ import hashlib
 
 from knack.log import get_logger
 from knack.util import CLIError
-from six.moves.configparser import ConfigParser
+from configparser import ConfigParser
 
+from azure.cli.core._environment import get_config_dir
 from azext_alias._const import (
-    GLOBAL_ALIAS_PATH,
-    GLOBAL_ALIAS_HASH_PATH,
+    GLOBAL_CONFIG_DIR,
+    ALIAS_FILE_NAME,
+    ALIAS_HASH_FILE_NAME,
     PLACEHOLDER_REGEX,
     ENV_VAR_REGEX,
     QUOTES_REGEX,
@@ -22,6 +24,9 @@ from azext_alias._const import (
     RECURSIVE_ALIAS_ERROR,
     PARSE_ERROR,
     IGNORE_CONFIG_MSG)
+
+GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_FILE_NAME)
+GLOBAL_ALIAS_HASH_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_HASH_FILE_NAME)
 
 logger = get_logger(__name__)
 
