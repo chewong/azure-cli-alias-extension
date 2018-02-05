@@ -5,38 +5,7 @@ from knack.util import CLIError
 
 from azext_alias import alias
 from azext_alias._const import GLOBAL_CONFIG_DIR
-
-DEFAULT_MOCK_ALIAS_STRING = '''
-[mn]
-command = monitor
-
-[diag]
-command = diagnostic-settings create
-
-[ac]
-command = account
-
-[ls]
-command = list -otable
-
-[create-grp]
-command = group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var
-
-[create-vm]
-command = vm create -g test-group -n test-vm
-
-[cp {0} {1}]
-command = storage blob copy start-batch --source-uri {0} --destination-container {1}
-
-[show-ext {0}]
-command = extension show -n {1}
-
-[dns]
-command = network dns
-
-[ac-ls]
-command = ac ls
-'''
+from _const import DEFAULT_MOCK_ALIAS_STRING, COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS
 
 class TestAlias(unittest.TestCase):
 
@@ -60,14 +29,9 @@ class TestAlias(unittest.TestCase):
         expected_args = ['monitor', 'diagnostic-settings', 'create']
         self.assertAlias(expected_args, alias_args)
 
-    def test_transform_simple_alias_with_extra_args(self):
+    def test_transform_alias_with_extra_args(self):
         alias_args = ['ac', 'set', '-s', 'test']
         expected_args = ['account', 'set', '-s', 'test']
-        self.assertAlias(expected_args, alias_args)
-
-        alias_args = ['create-vm', '--image', 'ubtuntults', '--generate-ssh-key', '--no-wait']
-        expected_args = ['vm', 'create', '-g', 'test-group', '-n',
-                         'test-vm', '--image', 'ubtuntults', '--generate-ssh-key', '--no-wait']
         self.assertAlias(expected_args, alias_args)
 
     def test_transform_pos_arg(self):
@@ -80,6 +44,11 @@ class TestAlias(unittest.TestCase):
         alias_args = ['cp', 'test1', 'test2', '-o', 'tsv']
         expected_args = ['storage', 'blob', 'copy', 'start-batch', '--source-uri',
                          'test1', '--destination-container', 'test2', '-o', 'tsv']
+        self.assertAlias(expected_args, alias_args)
+
+        alias_args = ['create-vm', '--image', 'ubtuntults', '--generate-ssh-key', '--no-wait']
+        expected_args = ['vm', 'create', '-g', 'test-group', '-n',
+                         'test-vm', '--image', 'ubtuntults', '--generate-ssh-key', '--no-wait']
         self.assertAlias(expected_args, alias_args)
 
     def test_transform_pos_arg_with_alias(self):
@@ -114,17 +83,12 @@ class TestAlias(unittest.TestCase):
         self.assertPostTransform(expected_args, alias_args)
 
     def test_recursive_alias(self):
-        alias_manager = MockAliasManager(mock_alias_str=DEFAULT_MOCK_ALIAS_STRING,
-                                         load_cmd_tbl_func=self.load_cmd_tbl_func)
+        alias_manager = MockAliasManager(mock_alias_str=DEFAULT_MOCK_ALIAS_STRING)
         with self.assertRaises(CLIError):
             alias_manager.transform(['ac-ls'])
 
-        with self.assertRaises(CLIError):
-            alias_manager.transform(['dns'])
-
     def test_inconsistent_placeholder_index(self):
-        alias_manager = MockAliasManager(mock_alias_str=DEFAULT_MOCK_ALIAS_STRING,
-                                         load_cmd_tbl_func=self.load_cmd_tbl_func)
+        alias_manager = MockAliasManager(mock_alias_str=DEFAULT_MOCK_ALIAS_STRING)
         # Raise error if there is not enough positional argument provided
         with self.assertRaises(CLIError):
             alias_manager.transform(['cp'])
@@ -133,21 +97,28 @@ class TestAlias(unittest.TestCase):
         with self.assertRaises(CLIError):
             alias_manager.transform(['show-ext', 'test-ext'])
 
+    def test_build_collision_table(self):
+        alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        alias_manager.build_collision_table()
+        self.assertSetEqual(set(['account', 'list-locations', 'dns', 'storage']), alias_manager.collided_alias)
+
     ##########################
     #### Helper functions ####
     ##########################
-    def assertAlias(self, expected_args, alias_args, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING):
-        alias_manager = MockAliasManager(mock_alias_str=mock_alias_str,
-                                         load_cmd_tbl_func=self.load_cmd_tbl_func)
+    def get_alias_manager(self, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING, reserved_commands=[]):
+        alias_manager = MockAliasManager(mock_alias_str=mock_alias_str)
+        alias_manager.reserved_commands = reserved_commands
+        return alias_manager
+
+    def assertAlias(self, expected_args, alias_args):
+        """ Assert the alias with the default alias config file """
+        alias_manager = self.get_alias_manager()
         self.assertEqual(expected_args, alias_manager.transform(alias_args))
 
     def assertPostTransform(self, expected_args, alias_args, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING):
-        alias_manager = MockAliasManager(mock_alias_str=mock_alias_str,
-                                         load_cmd_tbl_func=self.load_cmd_tbl_func)
+        alias_manager = self.get_alias_manager()
         self.assertEqual(expected_args, alias_manager.post_transform(alias_args))
 
-    def load_cmd_tbl_func(self, _):
-        return []
 
 class MockAliasManager(alias.AliasManager):
 

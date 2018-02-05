@@ -36,7 +36,6 @@ class AliasManager(object):
     def __init__(self, **kwargs):
         self.alias_table = ConfigParser()
         self.kwargs = kwargs
-        self.collision_regex = r'^'
         self.bypass_recursive_check_cmd = set()
         self.collided_alias = set()
         self.reserved_commands = []
@@ -141,9 +140,7 @@ class AliasManager(object):
         If there is a collision, the word will be appended to self.collided_alias
         """
         for alias in self.alias_table.sections():
-            self.collision_regex = r'^'
-            for word in alias.split():
-                self.check_collision(word)
+            self.check_collision(alias.split()[0])
 
     def check_collision(self, word):
         """
@@ -163,8 +160,8 @@ class AliasManager(object):
         self.reserved_words that prefix with self.collision_regex. If the result set is empty, we can conclude
         that there is no collision occurred (for now).
         """
-        self.collision_regex += r'{}($|\s)'.format(word.lower())
-        collided = self.get_truncated_reserved_commands()
+        collision_regex = r'.*(^|\s){}($|\s).*'.format(word.lower())
+        collided = self.get_truncated_reserved_commands(collision_regex)
 
         if collided:
             self.collided_alias.add(word)
@@ -182,15 +179,15 @@ class AliasManager(object):
             if subcommand not in self.bypass_recursive_check_cmd and self.get_full_alias(subcommand):
                 raise CLIError(RECURSIVE_ALIAS_ERROR.format(subcommand))
 
-    def get_truncated_reserved_commands(self):
+    def get_truncated_reserved_commands(self, collision_regex):
         """ List all the reserved commands where their prefix is the same as the current collision regex """
-        return list(filter(re.compile(self.collision_regex).match, self.reserved_commands))
+        return list(filter(re.compile(collision_regex).match, self.reserved_commands))
 
     def load_full_command_table(self):
         """ Perform a full load of the command table to get all the reserved command words """
         load_cmd_tbl_func = self.kwargs.get('load_cmd_tbl_func', None)
         if load_cmd_tbl_func:
-            self.reserved_commands = load_cmd_tbl_func([])
+            self.reserved_commands = list(load_cmd_tbl_func([]).keys())
 
     def post_transform(self, args):
         """
