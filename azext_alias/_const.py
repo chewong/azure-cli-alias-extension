@@ -3,8 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-import os
-
 from azure.cli.core._environment import get_config_dir
 
 GLOBAL_CONFIG_DIR = get_config_dir()

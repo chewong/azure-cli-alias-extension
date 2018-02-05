@@ -6,12 +6,11 @@
 import os
 import re
 import hashlib
+from configparser import ConfigParser
 
 from knack.log import get_logger
 from knack.util import CLIError
-from configparser import ConfigParser
 
-from azure.cli.core._environment import get_config_dir
 from azext_alias._const import (
     GLOBAL_CONFIG_DIR,
     ALIAS_FILE_NAME,
@@ -80,12 +79,12 @@ class AliasManager(object):
         return False
 
     def transform(self, args):
+        """ Transform any aliases in args to their respective commands """
         # Only load the entire command table if it detects changes in the alias config
         if self.detect_alias_config_change():
             self.load_full_command_table()
             self.build_collision_table()
 
-        """ Transform any aliases in args to their respective commands """
         # If we have an alias collision or parse error,
         # do not perform anything and simply return the original input args
         if self.collided_alias or self.parse_error():

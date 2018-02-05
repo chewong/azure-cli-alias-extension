@@ -13,12 +13,12 @@ from _const import (DEFAULT_MOCK_ALIAS_STRING,
 class TestAlias(unittest.TestCase):
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         alias.GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, 'test_alias')
         alias.GLOBAL_ALIAS_HASH_PATH = os.path.join(GLOBAL_CONFIG_DIR, 'test_alias.sha1')
 
     @classmethod
-    def tearDownClass(self):
+    def tearDownClass(cls):
         # Remove test files
         os.remove(alias.GLOBAL_ALIAS_PATH)
         os.remove(alias.GLOBAL_ALIAS_HASH_PATH)
@@ -129,22 +129,23 @@ class TestAlias(unittest.TestCase):
         self.assertTrue(alias_manager.parse_error())
 
     def test_detect_alias_config_change(self):
-        # Simulate two executions of commands with the same alias config file
         alias_manager = self.get_alias_manager()
+        # Running transform() will write the alias config hash to the sha1 file
         alias_manager.transform(['mn'])
+        # Load the same alias config file and alias hash file by initializing a new session of alias manager
         alias_manager = self.get_alias_manager()
         self.assertFalse(alias_manager.detect_alias_config_change())
 
-        # Simulate two executions of commands with two different alias config file
+        # Load a new alias file (an empty string in this case)
         alias_manager = self.get_alias_manager('')
         self.assertTrue(alias_manager.detect_alias_config_change())
 
     ##########################
     #### Helper functions ####
     ##########################
-    def get_alias_manager(self, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING, reserved_commands=[]):
+    def get_alias_manager(self, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING, reserved_commands=None):
         alias_manager = MockAliasManager(mock_alias_str=mock_alias_str)
-        alias_manager.reserved_commands = reserved_commands
+        alias_manager.reserved_commands = reserved_commands if reserved_commands else []
         return alias_manager
 
     def assertAlias(self, expected_args, alias_args):
@@ -153,14 +154,11 @@ class TestAlias(unittest.TestCase):
         self.assertEqual(expected_args, alias_manager.transform(alias_args))
 
     def assertPostTransform(self, expected_args, alias_args, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING):
-        alias_manager = self.get_alias_manager()
+        alias_manager = self.get_alias_manager(mock_alias_str=mock_alias_str)
         self.assertEqual(expected_args, alias_manager.post_transform(alias_args))
 
 
 class MockAliasManager(alias.AliasManager):
-
-    def __init__(self, **kwargs):
-        super(MockAliasManager, self).__init__(**kwargs)
 
     def load_alias_table(self):
         with open(alias.GLOBAL_ALIAS_PATH, 'w+') as alias_config_file:
