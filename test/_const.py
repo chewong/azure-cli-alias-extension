@@ -25,8 +25,11 @@ command = vm create -g test-group -n test-vm
 [cp {0} {1}]
 command = storage blob copy start-batch --source-uri {0} --destination-container {1}
 
-[show-ext {0}]
+[show-ext-1 {0}]
 command = extension show -n {1}
+
+[show-ext-2 {1}]
+command = extension show -n {0}
 
 [ac-ls]
 command = ac ls
@@ -50,6 +53,14 @@ command = network dns
 
 [storage list]
 command = account get-access-token
+'''
+
+DUP_SECTION_MOCK_ALIAS_STRING = '''
+[mn]
+command = monitor
+
+[mn]
+command = account
 '''
 
 TEST_RESERVED_COMMANDS = ['account list',

@@ -5,7 +5,10 @@ from knack.util import CLIError
 
 from azext_alias import alias
 from azext_alias._const import GLOBAL_CONFIG_DIR
-from _const import DEFAULT_MOCK_ALIAS_STRING, COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS
+from _const import (DEFAULT_MOCK_ALIAS_STRING,
+                    COLLISION_MOCK_ALIAS_STRING,
+                    TEST_RESERVED_COMMANDS,
+                    DUP_SECTION_MOCK_ALIAS_STRING)
 
 class TestAlias(unittest.TestCase):
 
@@ -21,6 +24,14 @@ class TestAlias(unittest.TestCase):
         os.remove(alias.GLOBAL_ALIAS_HASH_PATH)
 
     def test_transform_simple_alias(self):
+        alias_args = ['ac']
+        expected_args = ['account']
+        self.assertAlias(expected_args, alias_args)
+
+        alias_args = ['ls']
+        expected_args = ['list', '-otable']
+        self.assertAlias(expected_args, alias_args)
+
         alias_args = ['ac', 'ls']
         expected_args = ['account', 'list', '-otable']
         self.assertAlias(expected_args, alias_args)
@@ -83,24 +94,50 @@ class TestAlias(unittest.TestCase):
         self.assertPostTransform(expected_args, alias_args)
 
     def test_recursive_alias(self):
-        alias_manager = MockAliasManager(mock_alias_str=DEFAULT_MOCK_ALIAS_STRING)
+        alias_manager = self.get_alias_manager()
         with self.assertRaises(CLIError):
             alias_manager.transform(['ac-ls'])
 
     def test_inconsistent_placeholder_index(self):
-        alias_manager = MockAliasManager(mock_alias_str=DEFAULT_MOCK_ALIAS_STRING)
+        alias_manager = self.get_alias_manager()
         # Raise error if there is not enough positional argument provided
         with self.assertRaises(CLIError):
             alias_manager.transform(['cp'])
 
         # Raise error if the placeholder indexing in the alias config file is inconsistent
         with self.assertRaises(CLIError):
-            alias_manager.transform(['show-ext', 'test-ext'])
+            alias_manager.transform(['show-ext-1', 'test-ext'])
+        with self.assertRaises(CLIError):
+            alias_manager.transform(['show-ext-2', 'test-ext'])
 
     def test_build_collision_table(self):
+        alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        self.assertSetEqual(set(), alias_manager.collided_alias)
+
         alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
         alias_manager.build_collision_table()
         self.assertSetEqual(set(['account', 'list-locations', 'dns', 'storage']), alias_manager.collided_alias)
+
+    def test_parse_error(self):
+        alias_manager = self.get_alias_manager()
+        self.assertFalse(alias_manager.parse_error())
+
+        alias_manager = self.get_alias_manager(DUP_SECTION_MOCK_ALIAS_STRING)
+        self.assertTrue(alias_manager.parse_error())
+
+        alias_manager = self.get_alias_manager('Malformed alias config file string')
+        self.assertTrue(alias_manager.parse_error())
+
+    def test_detect_alias_config_change(self):
+        # Simulate two executions of commands with the same alias config file
+        alias_manager = self.get_alias_manager()
+        alias_manager.transform(['mn'])
+        alias_manager = self.get_alias_manager()
+        self.assertFalse(alias_manager.detect_alias_config_change())
+
+        # Simulate two executions of commands with two different alias config file
+        alias_manager = self.get_alias_manager('')
+        self.assertTrue(alias_manager.detect_alias_config_change())
 
     ##########################
     #### Helper functions ####
@@ -128,7 +165,7 @@ class MockAliasManager(alias.AliasManager):
     def load_alias_table(self):
         with open(alias.GLOBAL_ALIAS_PATH, 'w+') as alias_config_file:
             alias_config_file.write(self.kwargs.get('mock_alias_str', ''))
-        self.alias_table.read(alias.GLOBAL_ALIAS_PATH)
+        super(MockAliasManager, self).load_alias_table()
 
 if __name__ == '__main__':
     unittest.main()

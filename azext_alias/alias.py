@@ -45,11 +45,6 @@ class AliasManager(object):
         self.load_alias_table()
         self.load_alias_hash()
 
-        # Only load the entire command table if it detects changes in the alias config
-        if self.detect_alias_config_change():
-            self.load_full_command_table()
-            self.build_collision_table()
-
     def load_alias_table(self):
         """ Load (create, if not exist) the alias config file """
         try:
@@ -85,6 +80,11 @@ class AliasManager(object):
         return False
 
     def transform(self, args):
+        # Only load the entire command table if it detects changes in the alias config
+        if self.detect_alias_config_change():
+            self.load_full_command_table()
+            self.build_collision_table()
+
         """ Transform any aliases in args to their respective commands """
         # If we have an alias collision or parse error,
         # do not perform anything and simply return the original input args
@@ -113,7 +113,7 @@ class AliasManager(object):
                 # them as positional arguments into the command
                 pos_args_iter = AliasManager.pos_args_iter(args, alias_index, num_pos_args)
                 for placeholder, pos_arg in pos_args_iter:
-                    if placeholder not in cmd_derived_from_alias:
+                    if placeholder not in cmd_derived_from_alias or placeholder not in full_alias:
                         raise CLIError(INCONSISTENT_INDEXING_ERROR)
                     cmd_derived_from_alias = cmd_derived_from_alias.replace(placeholder, pos_arg)
 
@@ -165,7 +165,6 @@ class AliasManager(object):
 
         if collided:
             self.collided_alias.add(word)
-        return bool(collided)
 
     def get_full_alias(self, query):
         """ Return the full alias (with the placeholders, if any) given a search query """
