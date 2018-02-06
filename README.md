@@ -1,14 +1,32 @@
 # azure-cli-alias-extension
-An Azure CLI extension that provides command alias functionality. It aims to enhance Azure CLI usuability and improve developer productivity. For detailed specificaition of this feature, please visit [here](https://gist.github.com/chewong/2afb67374d700b34015d146f63a79b15).
+An Azure CLI extension that provides command alias functionality. It aims to enhance Azure CLI usuability and improve developer productivity.
+
+## Usage
+To install the extension:
+```bash
+$ cd azure-cli
+$ git pull
+$ git checkout new-knack-event
+$ az extension add --source https://github.com/chewong/azure-cli-alias-extension/releases/download/0.0.1/azure_cli_alias_extension-0.0.1-py2.py3-none-any.whl -y
+```
+
+To author the alias configuration file on OSX/Ubuntu(bash):
+```
+$ vim ~/.azure/alias
+```
+
+To author the alias configuration file on Windows, go to  `%HOMEPATH%/.azure` in file explorer and edit it directly.
+
+For the configuration file specification, please visit [az-alias-spec](https://gist.github.com/chewong/2afb67374d700b34015d146f63a79b15)
 
 ## Developing
 1. Set up your Azure CLI development environment:
 ```bash
 $ git clone https://github.com/chewong/azure-cli
 $ cd azure-cli
-$ git checkout az-alias-prototype
+$ git checkout new-knack-event
 ```
-Extra code in azure-cli-core are required to incorporate the alias extension, however, it is not available in [Azure/azure-cli](https://github.com/Azure/azure-cli) yet. Therefore, you need to check out the `az-alias-prototype` branch from chewong version of `azure-cli`, configure your machine [as follow](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine), and make sure your virtual environment is activated.
+Extra code in azure-cli-core are required to incorporate the alias extension, however, it is not available in [Azure/azure-cli](https://github.com/Azure/azure-cli) yet. Therefore, you need to check out the `new-knack-event` branch from chewong version of `azure-cli`, configure your machine [as follow](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine), and make sure your virtual environment is activated.
 
 2. Set up the extension:
 ```bash
