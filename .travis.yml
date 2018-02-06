@@ -6,8 +6,8 @@ jobs:
       script: . scripts/ci/precheck.sh
       python: 3.6
     - stage: test
-      script: python test/test_alias.py
+      script: . scripts/ci/test_automation.sh
       python: 3.6
     - stage: test
-      script: python test/test_alias.py
+      script: . scripts/ci/test_automation.sh
       python: 2.7
