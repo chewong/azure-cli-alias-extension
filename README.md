@@ -22,6 +22,7 @@ $ pip install --upgrade --target $AZURE_EXTENSION_DIR/azure-cli-alias-extension 
 
 
 ## Building
+Before building locally, make sure you have [azure-cli virtual environment](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine) activated.
 ```bash
 $ unset AZURE_EXTENSION_DIR
 $ cd azure-cli-alias-extension
@@ -34,14 +35,14 @@ whl              azure-cli-alias-extension  0.0.1
 ```
 
 ## Testing and Others
- Also, you need to point your `$PYTHONPATH` to `env/lib/python3.6/site-packages` and `src/azure-cli-core` from your `azure-cli` folder for unit tests to work.
+With [azure-cli virtual environment](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine) still activated, you can run tests locally by:
 
 ```bash
-$ export PYTHONPATH="${AUZRE_CLI_DIR}/env/lib/python3.6/site-packages:${AUZRE_CLI_DIR}/src/azure-cli-core:${PYTHONPATH}"
-$ pip install .
+$ cd azure-cli-alias-extension
+$ export PYTHONPATH=$(pwd)/azext_alias:${PYTHONPATH}
+$ pip install -r requirements.txt
 $ python test/test_alias.py
 ```
-Remove the above two paths when everything is finished.
 
 To run pylint:
 ```bash

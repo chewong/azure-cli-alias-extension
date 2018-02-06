@@ -5,7 +5,7 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 VERSION = "0.0.1"
 
