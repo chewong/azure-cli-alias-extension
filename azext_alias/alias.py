@@ -196,7 +196,9 @@ class AliasManager(object):
             """ Inject environment variables into the commands """
             env_vars = re.findall(ENV_VAR_REGEX, arg)
             for env_var in env_vars:
-                arg = arg.replace(env_var, os.path.expandvars(env_var))
+                # Do not treat escaped $ as environment variable
+                if env_var[0] != '\\':
+                    arg = arg.replace(env_var, os.path.expandvars(env_var))
             return arg
 
         post_transform_commands = []

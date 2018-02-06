@@ -33,6 +33,9 @@ command = extension show -n {0}
 
 [ac-ls]
 command = ac ls
+
+[dns]
+command = network dns
 '''
 
 COLLISION_MOCK_ALIAS_STRING = '''

@@ -10,7 +10,6 @@ from knack.util import CLIError
 from ddt import ddt, data
 
 from azext_alias import alias
-from azext_alias._const import GLOBAL_CONFIG_DIR
 from _const import (DEFAULT_MOCK_ALIAS_STRING,
                     COLLISION_MOCK_ALIAS_STRING,
                     TEST_RESERVED_COMMANDS,
@@ -25,75 +24,69 @@ class TestAlias(unittest.TestCase):
           ('mn diag', 'monitor diagnostic-settings create'),
           ('create-vm', 'vm create -g test-group -n test-vm'))
     def test_transform_simple_alias(self, value):
-        alias_args, expected_args = value
-        self.assertAlias(expected_args, alias_args)
+        self.assertAlias(value)
 
     @data(('ac set -s test', 'account set -s test'),
           ('vm ls -g test -otable', 'vm list -otable -g test -otable'))
     def test_transform_alias_with_extra_args(self, value):
-        alias_args, expected_args = value
-        self.assertAlias(expected_args, alias_args)
+        self.assertAlias(value)
 
     @data(('cp test1 test2', 'storage blob copy start-batch --source-uri test1 --destination-container test2'))
     def test_transform_pos_arg(self, value):
-        alias_args, expected_args = value
-        self.assertAlias(expected_args, alias_args)
+        self.assertAlias(value)
 
     @data(('cp test1 test2 -o tsv', 'storage blob copy start-batch --source-uri test1 --destination-container test2 -o tsv'),
           ('create-vm --image ubtuntults --generate-ssh-key --no-wait', 'vm create -g test-group -n test-vm --image ubtuntults --generate-ssh-key --no-wait'))
     def test_transform_pos_arg_with_extra_args(self, value):
-        alias_args, expected_args = value
-        self.assertAlias(expected_args, alias_args)
+        self.assertAlias(value)
 
     @data(('cp mn diag', 'storage blob copy start-batch --source-uri mn --destination-container diag'))
     def test_transform_pos_arg_with_alias(self, value):
         # Placeholders are aliases in this case
         # Expected alias_manager not to transform mn and diag, even though they are alias,
         # because they are positional argument in this use case
-        alias_args, expected_args = value
-        self.assertAlias(expected_args, alias_args)
+        self.assertAlias(value)
 
-    @data(('group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var', 'group create -n test --tags tag1=test-env-var-1 tag2=test-env-var-2 tag3=$non-existing-env-var'))
+    @data(('group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var', 'group create -n test --tags tag1=test-env-var-1 tag2=test-env-var-2 tag3=$non-existing-env-var'),
+          ('test -n \$tag1', 'test -n \$tag1'))
     def test_post_transform_env_var(self, value):
         os.environ['tag1'] = 'test-env-var-1'
         os.environ['tag2'] = 'test-env-var-2'
-        alias_args, expected_args = value
-        self.assertPostTransform(expected_args, alias_args)
+        self.assertPostTransform(value)
 
     @data(('vm list -g MyResourceGroup --query "[].id" -o tsv', 'vm list -g MyResourceGroup --query [].id -o tsv'),
           ('vm list -g MyResourceGroup --query \'[].id\' -o tsv', 'vm list -g MyResourceGroup --query [].id -o tsv'))
     def test_post_transform_remove_quotes(self, value):
-        alias_args, expected_args = value
-        self.assertPostTransform(expected_args, alias_args)
+        self.assertPostTransform(value)
 
-    def test_recursive_alias(self):
+    @data(['ac-ls'], ['dns'])
+    def test_recursive_alias(self, value):
         alias_manager = self.get_alias_manager()
         with self.assertRaises(CLIError):
-            alias_manager.transform(['ac-ls'])
+            alias_manager.transform(value)
 
     @data(['cp'], ['show-ext-1', 'test-ext'], ['show-ext-2', 'test-ext'])
     def test_inconsistent_placeholder_index(self, value):
         alias_manager = self.get_alias_manager()
-        # Raise error if there is not enough positional argument provided
         with self.assertRaises(CLIError):
             alias_manager.transform(value)
 
-    def test_build_collision_table(self):
+    def test_build_empty_collision_table(self):
         alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
         self.assertSetEqual(set(), alias_manager.collided_alias)
 
+    def test_build_non_empty_collision_table(self):
         alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
         alias_manager.build_collision_table()
         self.assertSetEqual(set(['account', 'list-locations', 'dns', 'storage']), alias_manager.collided_alias)
 
-    def test_parse_error(self):
+    def test_non_parse_error(self):
         alias_manager = self.get_alias_manager()
         self.assertFalse(alias_manager.parse_error())
 
-        alias_manager = self.get_alias_manager(DUP_SECTION_MOCK_ALIAS_STRING)
-        self.assertTrue(alias_manager.parse_error())
-
-        alias_manager = self.get_alias_manager('Malformed alias config file string')
+    @data(DUP_SECTION_MOCK_ALIAS_STRING, 'Malformed alias config file string')
+    def test_parse_error(self, value):
+        alias_manager = self.get_alias_manager(value)
         self.assertTrue(alias_manager.parse_error())
 
     def test_detect_alias_config_change(self):
@@ -114,14 +107,14 @@ class TestAlias(unittest.TestCase):
         alias_manager.reserved_commands = reserved_commands if reserved_commands else []
         return alias_manager
 
-    def assertAlias(self, expected_args, alias_args):
+    def assertAlias(self, value):
         """ Assert the alias with the default alias config file """
         alias_manager = self.get_alias_manager()
-        self.assertEqual(expected_args.split(), alias_manager.transform(alias_args.split()))
+        self.assertEqual(value[1].split(), alias_manager.transform(value[0].split()))
 
-    def assertPostTransform(self, expected_args, alias_args, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING):
+    def assertPostTransform(self, value, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING):
         alias_manager = self.get_alias_manager(mock_alias_str=mock_alias_str)
-        self.assertEqual(expected_args.split(), alias_manager.post_transform(alias_args.split()))
+        self.assertEqual(value[1].split(), alias_manager.post_transform(value[0].split()))
 
 
 class MockAliasManager(alias.AliasManager):
@@ -150,4 +143,5 @@ class MockAliasManager(alias.AliasManager):
         pass
 
 if __name__ == '__main__':
-    unittest.main()
+    test_suite = unittest.TestLoader().loadTestsFromTestCase(TestAlias)
+    unittest.TextTestRunner(verbosity=2).run(test_suite)
