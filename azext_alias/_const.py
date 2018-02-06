@@ -11,7 +11,6 @@ ALIAS_HASH_FILE_NAME = 'alias.sha1'
 
 PLACEHOLDER_REGEX = r'\s*{\d+}'
 PLACEHOLDER_SPLIT_REGEX = r'\s*{\d+\.split\(((\'.*\')|(".*"))\)\[\d+\]}'
-ENV_VAR_REGEX = r'.?\$[a-zA-Z][a-zA-Z0-9_]*'
 QUOTES_REGEX = r'^[\'|\"]|[\'|\"]$'
 
 COLLISION_WARNING = 'The following alias collided with a reserved command in the CLI: {}'

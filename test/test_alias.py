@@ -47,8 +47,7 @@ class TestAlias(unittest.TestCase):
         # because they are positional argument in this use case
         self.assertAlias(value)
 
-    @data(('group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var', 'group create -n test --tags tag1=test-env-var-1 tag2=test-env-var-2 tag3=$non-existing-env-var'),
-          ('test -n \$tag1', 'test -n \$tag1'))
+    @data(('group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var', 'group create -n test --tags tag1=test-env-var-1 tag2=test-env-var-2 tag3=$non-existing-env-var'))
     def test_post_transform_env_var(self, value):
         os.environ['tag1'] = 'test-env-var-1'
         os.environ['tag2'] = 'test-env-var-2'

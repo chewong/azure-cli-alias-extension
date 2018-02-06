@@ -16,7 +16,6 @@ from azext_alias._const import (
     ALIAS_FILE_NAME,
     ALIAS_HASH_FILE_NAME,
     PLACEHOLDER_REGEX,
-    ENV_VAR_REGEX,
     QUOTES_REGEX,
     COLLISION_WARNING,
     INCONSISTENT_INDEXING_ERROR,
@@ -192,21 +191,12 @@ class AliasManager(object):
         Inject environment variables and remove leading and trailing quotes
         after transforming alias to commands
         """
-        def inject_env_vars(arg):
-            """ Inject environment variables into the commands """
-            env_vars = re.findall(ENV_VAR_REGEX, arg)
-            for env_var in env_vars:
-                # Do not treat escaped $ as environment variable
-                if env_var[0] != '\\':
-                    arg = arg.replace(env_var, os.path.expandvars(env_var))
-            return arg
-
         post_transform_commands = []
         for arg in args:
             # JMESPath queries are surrounded by a pair of quotes,
             # need to get rid of them before passing args to argparse
             arg = re.sub(QUOTES_REGEX, '', arg)
-            post_transform_commands.append(inject_env_vars(arg))
+            post_transform_commands.append(os.path.expandvars(arg))
 
         self.write_alias_config_hash()
 
