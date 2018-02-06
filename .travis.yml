@@ -1,0 +1,13 @@
+language: python
+cache: pip
+jobs:
+  include:
+    - stage: precheck
+      script: . scripts/ci/precheck.sh
+      python: 3.6
+    - stage: test
+      script: python test/test_alias.py
+      python: 3.6
+    - stage: test
+      script: python test/test_alias.py
+      python: 2.7
