@@ -58,7 +58,7 @@ class TestAlias(unittest.TestCase):
     def test_post_transform_remove_quotes(self, value):
         self.assertPostTransform(value)
 
-    @data(['ac-ls'], ['dns'])
+    @data(['ac-ls'], ['ndns'])
     def test_recursive_alias(self, value):
         alias_manager = self.get_alias_manager()
         with self.assertRaises(CLIError):
@@ -69,6 +69,16 @@ class TestAlias(unittest.TestCase):
         alias_manager = self.get_alias_manager()
         with self.assertRaises(CLIError):
             alias_manager.transform(value)
+
+    @data('mn', 'diag', 'ac', 'ls')
+    def test_is_not_collided(self, value):
+        alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        self.assertFalse(alias_manager.is_collided(value))
+
+    @data('account', 'list-locations', 'dns', 'storage')
+    def test_is_collided(self, value):
+        alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        self.assertTrue(alias_manager.is_collided(value))
 
     def test_build_empty_collision_table(self):
         alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)

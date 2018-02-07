@@ -39,7 +39,6 @@ class AliasManager(object):
         self.reserved_commands = []
         self.alias_config_str = ''
         self.alias_config_hash = ''
-
         self.load_alias_table()
         self.load_alias_hash()
 
@@ -71,8 +70,8 @@ class AliasManager(object):
             return False
 
         alias_config_sha1 = hashlib.sha1(self.alias_config_str.encode('utf-8')).hexdigest()
-        # Overwrite the old hash with the new one
         if alias_config_sha1 != self.alias_config_hash:
+            # Overwrite the old hash with the new one
             self.alias_config_hash = alias_config_sha1
             return True
         return False
@@ -138,31 +137,18 @@ class AliasManager(object):
         If there is a collision, the word will be appended to self.collided_alias
         """
         for alias in self.alias_table.sections():
-            self.check_collision(alias.split()[0])
+            word = alias.split()[0]
+            if self.is_collided(word):
+                self.collided_alias.add(word)
 
-    def check_collision(self, word):
+    def is_collided(self, word):
         """
-        Check if a given alias collides with a reserved command.
-        Return True if there is a collision.
+        Check if a given alias collides with a reserved command. Return True if there is a collision.
         Collision in this context is defined as an alias containing the exact same characters as a
-        reserved command in the same level. For example:
-        level 0 | level 1 | level 2 | ...
-            az       vm      create   ...
-        If a user defined an alias [vm]->[account list], and typed 'az vm', there is a collision because 'vm' in
-        'az vm' is in level 1 and 'vm' itself is a level-1-reserved word. However, if the alias is [vm]->[list],
-        'az account vm' would translate to 'az account list' because vm is not a level-2-reserved word.
-        However, we do not encourage customers to define alias that contains reserved words
-
-        self.collision_regex is an regex that we keep building throughout transform(), which checks for
-        collision. Simply append alias to self.collision_regex and check if there are commands in
-        self.reserved_words that prefix with self.collision_regex. If the result set is empty, we can conclude
-        that there is no collision occurred (for now).
+        reserved command.
         """
         collision_regex = r'.*(^|\s){}($|\s).*'.format(word.lower())
-        collided = self.get_truncated_reserved_commands(collision_regex)
-
-        if collided:
-            self.collided_alias.add(word)
+        return list(filter(re.compile(collision_regex).match, self.reserved_commands))
 
     def get_full_alias(self, query):
         """ Return the full alias (with the placeholders, if any) given a search query """
@@ -176,10 +162,6 @@ class AliasManager(object):
             if subcommand not in self.bypass_recursive_check_cmd and self.get_full_alias(subcommand):
                 raise CLIError(RECURSIVE_ALIAS_ERROR.format(subcommand))
 
-    def get_truncated_reserved_commands(self, collision_regex):
-        """ List all the reserved commands where their prefix is the same as the current collision regex """
-        return list(filter(re.compile(collision_regex).match, self.reserved_commands))
-
     def load_full_command_table(self):
         """ Perform a full load of the command table to get all the reserved command words """
         load_cmd_tbl_func = self.kwargs.get('load_cmd_tbl_func', None)
@@ -188,8 +170,8 @@ class AliasManager(object):
 
     def post_transform(self, args):
         """
-        Inject environment variables and remove leading and trailing quotes
-        after transforming alias to commands
+        Inject environment variables, remove leading and trailing quotes,
+        and write hash to alias hash file after transforming alias to commands
         """
         post_transform_commands = []
         for arg in args:

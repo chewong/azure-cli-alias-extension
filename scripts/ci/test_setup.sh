@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 cd $TRAVIS_BUILD_DIR
 cd ..
 export HOME_DIR=$(pwd)
