@@ -22,16 +22,31 @@ class TestAlias(unittest.TestCase):
           ('ls', 'list -otable'),
           ('ac ls', 'account list -otable'),
           ('mn diag', 'monitor diagnostic-settings create'),
-          ('create-vm', 'vm create -g test-group -n test-vm'))
+          ('create-vm', 'vm create -g test-group -n test-vm'),
+          ('ac-ls', 'ac ls'),
+          ('-h', '-h'))
     def test_transform_simple_alias(self, value):
         self.assertAlias(value)
 
     @data(('ac set -s test', 'account set -s test'),
           ('vm ls -g test -otable', 'vm list -otable -g test -otable'))
-    def test_transform_alias_with_extra_args(self, value):
+    def test_transform_simple_alias_with_extra_args(self, value):
         self.assertAlias(value)
 
-    @data(('cp test1 test2', 'storage blob copy start-batch --source-uri test1 --destination-container test2'))
+    @data(('account list -otable', 'account list -otable'),
+          ('account list-locations', 'account list-locations'),
+          ('list-locations', 'diagnostic-settings create'),
+          ('dns', 'network dns'),
+          ('network dns', 'network dns'))
+    def test_transform_collided_alias(self, value):
+        alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        alias_manager.build_collision_table(len(value))
+        self.assertEqual(value[1].split(), alias_manager.transform(value[0].split()))
+
+    @data(('cp test1 test2', 'storage blob copy start-batch --source-uri test1 --destination-container test2'),
+          ('pos-arg-1 test1 test2', 'iot test1test test2test'),
+          ('pos-arg-2', 'ad {0} {1}'),
+          ('show-ext-1 test-ext', 'extension show -n {1}'))
     def test_transform_pos_arg(self, value):
         self.assertAlias(value)
 
@@ -47,6 +62,15 @@ class TestAlias(unittest.TestCase):
         # because they are positional argument in this use case
         self.assertAlias(value)
 
+    @data(('network vnet update -g test -n test --dns-servers ""', 'network vnet update -g test -n test --dns-servers'),
+          ('test1 test2 --query \'\'', 'test1 test2 --query'))
+    def test_transform_empty_string(self, value):
+        alias_manager = self.get_alias_manager()
+        expected_args = value[1].split()
+        # Empty string should not be removed in transformed command
+        expected_args.append('')
+        self.assertEqual(expected_args, alias_manager.transform(value[0].split()))
+
     @data(('group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var', 'group create -n test --tags tag1=test-env-var-1 tag2=test-env-var-2 tag3=$non-existing-env-var'))
     def test_post_transform_env_var(self, value):
         os.environ['tag1'] = 'test-env-var-1'
@@ -58,36 +82,20 @@ class TestAlias(unittest.TestCase):
     def test_post_transform_remove_quotes(self, value):
         self.assertPostTransform(value)
 
-    @data(['ac-ls'], ['ndns'])
-    def test_recursive_alias(self, value):
-        alias_manager = self.get_alias_manager()
-        with self.assertRaises(CLIError):
-            alias_manager.transform(value)
-
-    @data(['cp'], ['show-ext-1', 'test-ext'], ['show-ext-2', 'test-ext'])
+    @data(['cp'], ['cp', 'test'], ['show-ext-2', 'test-ext'])
     def test_inconsistent_placeholder_index(self, value):
         alias_manager = self.get_alias_manager()
         with self.assertRaises(CLIError):
             alias_manager.transform(value)
 
-    @data('mn', 'diag', 'ac', 'ls')
-    def test_is_not_collided(self, value):
-        alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
-        self.assertFalse(alias_manager.is_collided(value))
-
-    @data('account', 'list-locations', 'dns', 'storage')
-    def test_is_collided(self, value):
-        alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
-        self.assertTrue(alias_manager.is_collided(value))
-
     def test_build_empty_collision_table(self):
         alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
-        self.assertSetEqual(set(), alias_manager.collided_alias)
+        self.assertDictEqual(dict(), alias_manager.collided_alias)
 
     def test_build_non_empty_collision_table(self):
         alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
-        alias_manager.build_collision_table()
-        self.assertSetEqual(set(['account', 'list-locations', 'dns', 'storage']), alias_manager.collided_alias)
+        alias_manager.build_collision_table(2)
+        self.assertDictEqual({'account': [1, 2], 'dns': [2], 'list-locations': [2]}, alias_manager.collided_alias)
 
     def test_non_parse_error(self):
         alias_manager = self.get_alias_manager()
@@ -148,7 +156,13 @@ class MockAliasManager(alias.AliasManager):
         import hashlib
         self.alias_config_hash = hashlib.sha1(self.alias_config_str.encode('utf-8')).hexdigest()
 
+    def load_collided_alias(self):
+        pass
+
     def write_alias_config_hash(self, empty_hash=False):
+        pass
+
+    def write_collided_alias(self):
         pass
 
 if __name__ == '__main__':

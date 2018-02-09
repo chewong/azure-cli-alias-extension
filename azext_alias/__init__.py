@@ -34,7 +34,7 @@ def alias_event_handler(_, **kwargs):
     """ An event handler for alias transformation when EVENT_INVOKER_PRE_TRUNCATE_CMD_TBL event is invoked """
     import timeit
     from azext_alias.alias import AliasManager
-    from azext_alias._const import DEBUG_MSG
+    from azext_alias._const import DEBUG_MSG_WITH_TIMING
 
     start_time = timeit.default_timer()
     args = kwargs.get('args')
@@ -44,6 +44,6 @@ def alias_event_handler(_, **kwargs):
     args[:] = alias_manager.transform(args)
 
     elapsed_time = timeit.default_timer() - start_time
-    logger.debug(DEBUG_MSG, args, elapsed_time)
+    logger.debug(DEBUG_MSG_WITH_TIMING, args, elapsed_time)
 
 COMMAND_LOADER_CLS = AliasExtensionLoader

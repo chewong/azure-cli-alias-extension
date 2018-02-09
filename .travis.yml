@@ -11,3 +11,5 @@ jobs:
     - stage: test
       script: . scripts/ci/test_automation.sh
       python: 2.7
+after_success:
+    - codecov

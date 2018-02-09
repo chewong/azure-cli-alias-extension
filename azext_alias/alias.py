@@ -6,7 +6,8 @@
 import os
 import re
 import hashlib
-from configparser import ConfigParser
+import json
+from configparser import ConfigParser, DuplicateSectionError, DuplicateOptionError
 
 from knack.log import get_logger
 from knack.util import CLIError
@@ -15,16 +16,20 @@ from azext_alias._const import (
     GLOBAL_CONFIG_DIR,
     ALIAS_FILE_NAME,
     ALIAS_HASH_FILE_NAME,
+    COLLIDED_ALIAS_FILE_NAME,
     PLACEHOLDER_REGEX,
     QUOTES_REGEX,
-    COLLISION_WARNING,
     INCONSISTENT_INDEXING_ERROR,
-    RECURSIVE_ALIAS_ERROR,
-    PARSE_ERROR,
-    IGNORE_CONFIG_MSG)
+    DUPLICATE_SECTION_ERROR,
+    DUPLICATE_OPTION_ERROR,
+    INSUFFICIENT_POS_ARG_ERROR,
+    DEBUG_MSG,
+    POS_ARG_DEBUG_MSG,
+    COLLISION_CHECK_LEVEL_DEPTH)
 
 GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_FILE_NAME)
 GLOBAL_ALIAS_HASH_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_HASH_FILE_NAME)
+GLOBAL_COLLIDED_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, COLLIDED_ALIAS_FILE_NAME)
 
 logger = get_logger(__name__)
 
@@ -34,8 +39,7 @@ class AliasManager(object):
     def __init__(self, **kwargs):
         self.alias_table = ConfigParser()
         self.kwargs = kwargs
-        self.bypass_recursive_check_cmd = set()
-        self.collided_alias = set()
+        self.collided_alias = dict()
         self.reserved_commands = []
         self.alias_config_str = ''
         self.alias_config_hash = ''
@@ -50,7 +54,11 @@ class AliasManager(object):
             with open(GLOBAL_ALIAS_PATH, open_mode) as alias_config_file:
                 self.alias_config_str = alias_config_file.read()
             self.alias_table.read(GLOBAL_ALIAS_PATH)
-        except Exception:  # pylint: disable=broad-except
+        except DuplicateSectionError:
+            logger.warning(DUPLICATE_SECTION_ERROR)
+            self.alias_table = ConfigParser()
+        except DuplicateOptionError:
+            logger.warning(DUPLICATE_OPTION_ERROR)
             self.alias_table = ConfigParser()
 
     def load_alias_hash(self):
@@ -59,6 +67,13 @@ class AliasManager(object):
         open_mode = 'r+' if os.path.exists(GLOBAL_ALIAS_HASH_PATH) else 'w+'
         with open(GLOBAL_ALIAS_HASH_PATH, open_mode) as alias_config_hash_file:
             self.alias_config_hash = alias_config_hash_file.read()
+
+    def load_collided_alias(self):
+        # w+ creates the alias config file if it does not exist
+        open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
+        with open(GLOBAL_COLLIDED_ALIAS_PATH, open_mode) as collided_alias_file:
+            collided_alias_str = collided_alias_file.read()
+            self.collided_alias = json.loads(collided_alias_str if collided_alias_str else '{}')
 
     def detect_alias_config_change(self):
         """
@@ -81,14 +96,13 @@ class AliasManager(object):
         # Only load the entire command table if it detects changes in the alias config
         if self.detect_alias_config_change():
             self.load_full_command_table()
-            self.build_collision_table()
+            self.build_collision_table(COLLISION_CHECK_LEVEL_DEPTH)
+        else:
+            self.load_collided_alias()
 
         # If we have an alias collision or parse error,
         # do not perform anything and simply return the original input args
-        if self.collided_alias or self.parse_error():
-            logger.warning(COLLISION_WARNING.format(self.collided_alias) if self.collided_alias else PARSE_ERROR)
-            logger.warning(IGNORE_CONFIG_MSG)
-
+        if self.parse_error():
             # Write an empty hash so next run will check the config file against the entire command table again
             self.write_alias_config_hash(True)
             return args
@@ -97,26 +111,36 @@ class AliasManager(object):
         alias_iter = enumerate(args, 1)
 
         for alias_index, alias in alias_iter:
+            # Directly append invalid alias or collided alias
+            if not alias or alias[0] == '-' or (alias in self.collided_alias and
+                                                alias_index in self.collided_alias[alias]):
+                transformed_commands.append(alias)
+                continue
+
             full_alias = self.get_full_alias(alias)
             num_pos_args = AliasManager.count_positional_args(full_alias)
 
             if self.alias_table.has_option(full_alias, 'command'):
                 cmd_derived_from_alias = self.alias_table.get(full_alias, 'command')
+                if not num_pos_args:
+                    logger.debug(DEBUG_MSG, alias, cmd_derived_from_alias)
             else:
                 cmd_derived_from_alias = alias
 
             if num_pos_args:
                 # Take arguments indexed from i to i + num_pos_args and inject
                 # them as positional arguments into the command
-                pos_args_iter = AliasManager.pos_args_iter(args, alias_index, num_pos_args)
+                pos_args_iter = AliasManager.pos_args_iter(alias, args, alias_index, num_pos_args)
+                pos_arg_debug_msg = POS_ARG_DEBUG_MSG.format(alias, cmd_derived_from_alias)
                 for placeholder, pos_arg in pos_args_iter:
-                    if placeholder not in cmd_derived_from_alias or placeholder not in full_alias:
-                        raise CLIError(INCONSISTENT_INDEXING_ERROR)
-                    cmd_derived_from_alias = cmd_derived_from_alias.replace(placeholder, pos_arg)
+                    if placeholder not in full_alias:
+                        raise CLIError(INCONSISTENT_INDEXING_ERROR.format(placeholder, full_alias))
 
-                    self.bypass_recursive_check_cmd.add(pos_arg)
+                    cmd_derived_from_alias = cmd_derived_from_alias.replace(placeholder, pos_arg)
+                    pos_arg_debug_msg += "({}: {}) ".format(placeholder, pos_arg)
                     # Skip the next arg because it has been already consumed as a positional argument above
                     next(alias_iter)
+                logger.debug(pos_arg_debug_msg)
             else:  # alias == cmd_derived_from_alias
                 # DO NOT perform anything if the alias is not registered in the alias config file
                 pass
@@ -126,41 +150,29 @@ class AliasManager(object):
 
         transformed_commands = self.post_transform(transformed_commands)
 
-        if transformed_commands != args:
-            self.check_recursive_alias(transformed_commands)
-
         return transformed_commands
 
-    def build_collision_table(self):
+    def build_collision_table(self, levels):
         """
         Check every word in each alias, check, and build if the word collided with a reserved command.
         If there is a collision, the word will be appended to self.collided_alias
         """
         for alias in self.alias_table.sections():
+            # Only care about the first word in the alias because alias
+            # cannot have spaces (unless they have positional arguments)
             word = alias.split()[0]
-            if self.is_collided(word):
-                self.collided_alias.add(word)
-
-    def is_collided(self, word):
-        """
-        Check if a given alias collides with a reserved command. Return True if there is a collision.
-        Collision in this context is defined as an alias containing the exact same characters as a
-        reserved command.
-        """
-        collision_regex = r'.*(^|\s){}($|\s).*'.format(word.lower())
-        return list(filter(re.compile(collision_regex).match, self.reserved_commands))
+            for level in range(1, levels + 1):
+                collision_regex = r'^{}{}($|\s)'.format(r'([a-z\-]*\s)' * (level - 1), word.lower())
+                if list(filter(re.compile(collision_regex).match, self.reserved_commands)):
+                    if word not in self.collided_alias:
+                        self.collided_alias[word] = []
+                    self.collided_alias[word].append(level)
 
     def get_full_alias(self, query):
         """ Return the full alias (with the placeholders, if any) given a search query """
         if query in self.alias_table.sections():
             return query
         return next((section for section in self.alias_table.sections() if section.split()[0] == query), '')
-
-    def check_recursive_alias(self, commands):
-        """ Check for any recursive alias """
-        for subcommand in commands:
-            if subcommand not in self.bypass_recursive_check_cmd and self.get_full_alias(subcommand):
-                raise CLIError(RECURSIVE_ALIAS_ERROR.format(subcommand))
 
     def load_full_command_table(self):
         """ Perform a full load of the command table to get all the reserved command words """
@@ -181,6 +193,7 @@ class AliasManager(object):
             post_transform_commands.append(os.path.expandvars(arg))
 
         self.write_alias_config_hash()
+        self.write_collided_alias()
 
         return post_transform_commands
 
@@ -192,6 +205,19 @@ class AliasManager(object):
         with open(GLOBAL_ALIAS_HASH_PATH, 'w') as alias_config_hash_file:
             alias_config_hash_file.write('' if empty_hash else self.alias_config_hash)
 
+    def write_collided_alias(self):
+        """
+        Write the collided aliases into file
+        """
+        if not self.collided_alias:
+            return
+
+        # w+ creates the alias config file if it does not exist
+        open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
+        with open(GLOBAL_COLLIDED_ALIAS_PATH, open_mode) as collided_alias_file:
+            collided_alias_file.truncate()
+            collided_alias_file.write(json.dumps(self.collided_alias))
+
     def parse_error(self):
         """
         There is a parse error if there are strings inside the alias
@@ -200,14 +226,14 @@ class AliasManager(object):
         return not self.alias_table.sections() and self.alias_config_str
 
     @staticmethod
-    def pos_args_iter(args, start_index, num_pos_args):
+    def pos_args_iter(alias, args, start_index, num_pos_args):
         """
         Generate an tuple iterator ([0], [1]) where the [0] is the positional argument
         placeholder and [1] is the argument value. e.g. ('{0}', pos_arg_1) -> ('{1}', pos_arg_2) -> ...
         """
         pos_args = args[start_index: start_index + num_pos_args]
         if len(pos_args) != num_pos_args:
-            raise CLIError(INCONSISTENT_INDEXING_ERROR)
+            raise CLIError(INSUFFICIENT_POS_ARG_ERROR.format(alias, num_pos_args, len(pos_args)))
 
         for i, pos_arg in enumerate(pos_args):
             yield ('{{{}}}'.format(i), pos_arg)
