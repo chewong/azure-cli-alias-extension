@@ -12,7 +12,7 @@ Run the following commands to install the extension:
 $ cd azure-cli
 $ git checkout dev
 $ git pull
-$ az extension add --source https://github.com/chewong/azure-cli-alias-extension/releases/download/0.0.1/azure_cli_alias_extension-0.0.1-py2.py3-none-any.whl -y
+$ az extension add --source https://github.com/chewong/azure-cli-alias-extension/releases/download/0.0.2/azure_cli_alias_extension-0.0.2-py2.py3-none-any.whl -y
 ```
 
 To author the alias configuration file on OSX/Ubuntu(bash):
@@ -45,11 +45,11 @@ Before building locally, make sure you have [azure-cli virtual environment](http
 $ unset AZURE_EXTENSION_DIR
 $ cd azure-cli-alias-extension
 $ python setup.py bdist_wheel
-$ az extension add --source dist/azure_cli_alias_extension-0.0.1-py2.py3-none-any.whl --yes
+$ az extension add --source dist/azure_cli_alias_extension-0.0.2-py2.py3-none-any.whl --yes
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              azure-cli-alias-extension  0.0.1
+whl              azure-cli-alias-extension  0.0.2
 ```
 
 ## Testing and Others
