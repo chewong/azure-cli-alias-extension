@@ -4,7 +4,7 @@
 An Azure CLI extension that provides command alias functionality. It aims to enhance Azure CLI usuability and improve developer productivity.
 
 ## Usage
-2.0.27 is the minimum version of the Azure CLI that is compatible with the alias extension. To check the version of your CLI, simply run `az --version`. A detailed guide of updating your Azure CLI client can be found here.
+2.0.28 is the minimum version of the Azure CLI that is compatible with the alias extension. To check the version of your CLI, simply run `az --version`. A detailed guide of updating your Azure CLI client can be found here.
 
 After updating your Azure CLI client to the latest version, run the following command to install the extension:
 
