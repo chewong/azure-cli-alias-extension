@@ -13,7 +13,9 @@ from azext_alias import alias
 from _const import (DEFAULT_MOCK_ALIAS_STRING,
                     COLLISION_MOCK_ALIAS_STRING,
                     TEST_RESERVED_COMMANDS,
-                    DUP_SECTION_MOCK_ALIAS_STRING)
+                    DUP_SECTION_MOCK_ALIAS_STRING,
+                    DUP_OPTION_MOCK_ALIAS_STRING,
+                    MALFORMED_MOCK_ALIAS_STRING)
 
 @ddt
 class TestAlias(unittest.TestCase):
@@ -24,7 +26,9 @@ class TestAlias(unittest.TestCase):
           ('mn diag', 'monitor diagnostic-settings create'),
           ('create-vm', 'vm create -g test-group -n test-vm'),
           ('ac-ls', 'ac ls'),
-          ('-h', '-h'))
+          ('-h', '-h'),
+          ('storage-connect test1 test2', 'storage account connection-string -g test1 -n test2 -otsv'),
+          ('', ''))
     def test_transform_simple_alias(self, value):
         self.assertAlias(value)
 
@@ -46,6 +50,7 @@ class TestAlias(unittest.TestCase):
     @data(('cp test1 test2', 'storage blob copy start-batch --source-uri test1 --destination-container test2'),
           ('pos-arg-1 test1 test2', 'iot test1test test2test'),
           ('pos-arg-2', 'ad {0} {1}'),
+          ('pos-arg-3 test1 test2', 'sf test1 test1 test2 test2'),
           ('show-ext-1 test-ext', 'extension show -n {1}'))
     def test_transform_pos_arg(self, value):
         self.assertAlias(value)
@@ -66,20 +71,24 @@ class TestAlias(unittest.TestCase):
           ('test1 test2 --query \'\'', 'test1 test2 --query'))
     def test_transform_empty_string(self, value):
         alias_manager = self.get_alias_manager()
+        transformed_args = alias_manager.transform(value[0].split())
         expected_args = value[1].split()
-        # Empty string should not be removed in transformed command
-        expected_args.append('')
-        self.assertEqual(expected_args, alias_manager.transform(value[0].split()))
+        self.assertEqual(expected_args, transformed_args[:-1])
+        self.assertEqual('', transformed_args[-1])
+
+    @data((['test', '--json', '\'{"parameters": {"location": {"value": "westus"}, "name": {"value": "azure-cli-deploy-test-nsg1"}}}\''], ['test', '--json', '{"parameters": {"location": {"value": "westus"}, "name": {"value": "azure-cli-deploy-test-nsg1"}}}']),
+          (['test', '--query', '"query with spaces"'], ['test', '--query', 'query with spaces']),
+          (['test', '--query', '"[].id"'], ['test', '--query', '[].id'],
+           ['test', '--query', '\'[].id\''], ['test', '--query', '[].id']))
+    def test_post_transform_remove_quotes(self, value):
+        alias_manager = self.get_alias_manager()
+        transformed_args = alias_manager.post_transform(value[0])
+        self.assertListEqual(value[1], transformed_args)
 
     @data(('group create -n test --tags tag1=$tag1 tag2=$tag2 tag3=$non-existing-env-var', 'group create -n test --tags tag1=test-env-var-1 tag2=test-env-var-2 tag3=$non-existing-env-var'))
     def test_post_transform_env_var(self, value):
         os.environ['tag1'] = 'test-env-var-1'
         os.environ['tag2'] = 'test-env-var-2'
-        self.assertPostTransform(value)
-
-    @data(('vm list -g MyResourceGroup --query "[].id" -o tsv', 'vm list -g MyResourceGroup --query [].id -o tsv'),
-          ('vm list -g MyResourceGroup --query \'[].id\' -o tsv', 'vm list -g MyResourceGroup --query [].id -o tsv'))
-    def test_post_transform_remove_quotes(self, value):
         self.assertPostTransform(value)
 
     @data(['cp'], ['cp', 'test'], ['show-ext-2', 'test-ext'])
@@ -101,7 +110,8 @@ class TestAlias(unittest.TestCase):
         alias_manager = self.get_alias_manager()
         self.assertFalse(alias_manager.parse_error())
 
-    @data(DUP_SECTION_MOCK_ALIAS_STRING, 'Malformed alias config file string')
+    @data(DUP_SECTION_MOCK_ALIAS_STRING, DUP_OPTION_MOCK_ALIAS_STRING,
+          MALFORMED_MOCK_ALIAS_STRING, 'Malformed alias config file string')
     def test_parse_error(self, value):
         alias_manager = self.get_alias_manager(value)
         self.assertTrue(alias_manager.parse_error())
@@ -142,11 +152,11 @@ class MockAliasManager(alias.AliasManager):
         self.alias_config_str = self.kwargs.get('mock_alias_str', '')
         try:
             try:
-                # Python 2 implementation
+                # Python 2.x implementation
                 from StringIO import StringIO
                 self.alias_table.readfp(StringIO(self.alias_config_str))
             except ModuleNotFoundError:
-                # Python 3 implementation
+                # Python 3.x implementation
                 self.alias_table = ConfigParser()
                 self.alias_table.read_string(self.alias_config_str)
         except Exception:  # pylint: disable=broad-except

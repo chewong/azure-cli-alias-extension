@@ -35,6 +35,6 @@ setup(
     author_email='t-chwong@microsoft.com',
     url='https://github.com/chewong/azure-cli-alias-extension',
     classifiers=CLASSIFIERS,
-    packages=['azext_alias'],
+    packages=['azext_alias', 'azext_alias.telemetry'],
     install_requires=DEPENDENCIES
 )

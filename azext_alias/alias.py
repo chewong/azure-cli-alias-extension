@@ -7,21 +7,20 @@ import os
 import re
 import hashlib
 import json
-from configparser import ConfigParser, DuplicateSectionError, DuplicateOptionError
+from configparser import ConfigParser
 
 from knack.log import get_logger
 from knack.util import CLIError
 
+from azext_alias.telemetry import telemetry
 from azext_alias._const import (
     GLOBAL_CONFIG_DIR,
     ALIAS_FILE_NAME,
     ALIAS_HASH_FILE_NAME,
     COLLIDED_ALIAS_FILE_NAME,
     PLACEHOLDER_REGEX,
-    QUOTES_REGEX,
     INCONSISTENT_INDEXING_ERROR,
-    DUPLICATE_SECTION_ERROR,
-    DUPLICATE_OPTION_ERROR,
+    CONFIG_PARSING_ERROR,
     INSUFFICIENT_POS_ARG_ERROR,
     DEBUG_MSG,
     POS_ARG_DEBUG_MSG,
@@ -54,12 +53,11 @@ class AliasManager(object):
             with open(GLOBAL_ALIAS_PATH, open_mode) as alias_config_file:
                 self.alias_config_str = alias_config_file.read()
             self.alias_table.read(GLOBAL_ALIAS_PATH)
-        except DuplicateSectionError:
-            logger.warning(DUPLICATE_SECTION_ERROR)
+            telemetry.set_number_of_aliases_registered(len(self.alias_table.sections()))
+        except Exception as exception:  # pylint: disable=broad-except
+            logger.warning(CONFIG_PARSING_ERROR, AliasManager.process_exception_message(exception))
             self.alias_table = ConfigParser()
-        except DuplicateOptionError:
-            logger.warning(DUPLICATE_OPTION_ERROR)
-            self.alias_table = ConfigParser()
+            telemetry.set_exception(exception)
 
     def load_alias_hash(self):
         """ Load (create, if not exist) the alias hash file """
@@ -69,6 +67,7 @@ class AliasManager(object):
             self.alias_config_hash = alias_config_hash_file.read()
 
     def load_collided_alias(self):
+        """ Load (create, if not exist) the collided alias file """
         # w+ creates the alias config file if it does not exist
         open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
         with open(GLOBAL_COLLIDED_ALIAS_PATH, open_mode) as collided_alias_file:
@@ -93,19 +92,19 @@ class AliasManager(object):
 
     def transform(self, args):
         """ Transform any aliases in args to their respective commands """
-        # Only load the entire command table if it detects changes in the alias config
-        if self.detect_alias_config_change():
-            self.load_full_command_table()
-            self.build_collision_table(COLLISION_CHECK_LEVEL_DEPTH)
-        else:
-            self.load_collided_alias()
-
         # If we have an alias collision or parse error,
         # do not perform anything and simply return the original input args
         if self.parse_error():
             # Write an empty hash so next run will check the config file against the entire command table again
             self.write_alias_config_hash(True)
             return args
+
+        # Only load the entire command table if it detects changes in the alias config
+        if self.detect_alias_config_change():
+            self.load_full_command_table()
+            self.build_collision_table(COLLISION_CHECK_LEVEL_DEPTH)
+        else:
+            self.load_collided_alias()
 
         transformed_commands = []
         alias_iter = enumerate(args, 1)
@@ -124,11 +123,13 @@ class AliasManager(object):
                 cmd_derived_from_alias = self.alias_table.get(full_alias, 'command')
                 if not num_pos_args:
                     logger.debug(DEBUG_MSG, alias, cmd_derived_from_alias)
+                telemetry.set_alias_hit(full_alias)
             else:
-                cmd_derived_from_alias = alias
+                transformed_commands.append(alias)
+                continue
 
             if num_pos_args:
-                # Take arguments indexed from i to i + num_pos_args and inject
+                # Take arguments indexed from alias_index to alias_index + num_pos_args and inject
                 # them as positional arguments into the command
                 pos_args_iter = AliasManager.pos_args_iter(alias, args, alias_index, num_pos_args)
                 pos_arg_debug_msg = POS_ARG_DEBUG_MSG.format(alias, cmd_derived_from_alias)
@@ -141,8 +142,7 @@ class AliasManager(object):
                     # Skip the next arg because it has been already consumed as a positional argument above
                     next(alias_iter)
                 logger.debug(pos_arg_debug_msg)
-            else:  # alias == cmd_derived_from_alias
-                # DO NOT perform anything if the alias is not registered in the alias config file
+            else: # DO NOT perform anything if there is no positional argument to inject
                 pass
 
             # Invoke split() because the command derived from the alias might contain spaces
@@ -154,8 +154,18 @@ class AliasManager(object):
 
     def build_collision_table(self, levels):
         """
-        Check every word in each alias, check, and build if the word collided with a reserved command.
-        If there is a collision, the word will be appended to self.collided_alias
+        Check every first word in each alias, and build the collision table
+        if the word collided with a reserved command. self.collided_alias is structured as:
+        {
+            'collided_alias': [the command level at which collision happens]
+        }
+        For example:
+        {
+            'account': [1, 2]
+        }
+        This means that 'account' is a reserved command in level 1 and level 2 of the command tree because
+        (az account ...) and (az storage account ...)
+             lvl 1                        lvl 2
         """
         for alias in self.alias_table.sections():
             # Only care about the first word in the alias because alias
@@ -167,6 +177,7 @@ class AliasManager(object):
                     if word not in self.collided_alias:
                         self.collided_alias[word] = []
                     self.collided_alias[word].append(level)
+        telemetry.set_collided_aliases(list(self.collided_alias.keys()))
 
     def get_full_alias(self, query):
         """ Return the full alias (with the placeholders, if any) given a search query """
@@ -179,17 +190,20 @@ class AliasManager(object):
         load_cmd_tbl_func = self.kwargs.get('load_cmd_tbl_func', None)
         if load_cmd_tbl_func:
             self.reserved_commands = list(load_cmd_tbl_func([]).keys())
+            telemetry.set_full_command_table_loaded()
 
     def post_transform(self, args):
         """
-        Inject environment variables, remove leading and trailing quotes,
-        and write hash to alias hash file after transforming alias to commands
+        Inject environment variables, and write hash to alias hash file after transforming alias to commands
         """
+        # Ignore 'az' if it is the first command
+        args = args[1:] if args and args[0] == 'az' else args
+
         post_transform_commands = []
         for arg in args:
-            # JMESPath queries are surrounded by a pair of quotes,
-            # need to get rid of them before passing args to argparse
-            arg = re.sub(QUOTES_REGEX, '', arg)
+            # Trim leading and trailing quotes
+            if arg and arg[0] == arg[-1] and arg[0] in '\'"':
+                arg = arg[1:-1]
             post_transform_commands.append(os.path.expandvars(arg))
 
         self.write_alias_config_hash()
@@ -209,9 +223,6 @@ class AliasManager(object):
         """
         Write the collided aliases into file
         """
-        if not self.collided_alias:
-            return
-
         # w+ creates the alias config file if it does not exist
         open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
         with open(GLOBAL_COLLIDED_ALIAS_PATH, open_mode) as collided_alias_file:
@@ -224,6 +235,13 @@ class AliasManager(object):
         config file but there is no alias loaded in self.alias_table
         """
         return not self.alias_table.sections() and self.alias_config_str
+
+    @staticmethod
+    def process_exception_message(exception):
+        exception_message = str(exception)
+        for replace_char in ['\t', '\n', '\\n']:
+            exception_message = exception_message.replace(replace_char, '' if replace_char != '\t' else ' ')
+        return exception_message.replace('section', 'alias')
 
     @staticmethod
     def pos_args_iter(alias, args, start_index, num_pos_args):

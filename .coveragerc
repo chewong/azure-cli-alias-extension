@@ -7,3 +7,4 @@ ignore_errors = True
 omit =
     test/*
     setup.py
+    azext_alias/telemetry/telemtry.py

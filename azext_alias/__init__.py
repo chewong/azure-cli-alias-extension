@@ -8,6 +8,7 @@ from knack.log import get_logger
 from azure.cli.core import AzCommandsLoader
 
 logger = get_logger(__name__)
+VERSION = '0.0.2'
 
 
 class AliasExtensionLoader(AzCommandsLoader):
@@ -27,7 +28,7 @@ class AliasExtensionLoader(AzCommandsLoader):
     def load_command_table(self, _):  # pylint: disable=no-self-use
         return {}
 
-    def load_arguments(self, command):
+    def load_arguments(self, _):
         pass
 
 def alias_event_handler(_, **kwargs):
@@ -35,15 +36,27 @@ def alias_event_handler(_, **kwargs):
     import timeit
     from azext_alias.alias import AliasManager
     from azext_alias._const import DEBUG_MSG_WITH_TIMING
+    from azext_alias.telemetry import telemetry
 
-    start_time = timeit.default_timer()
-    args = kwargs.get('args')
-    alias_manager = AliasManager(**kwargs)
+    try:
+        telemetry.start()
 
-    # [:] will keep the reference of the original args
-    args[:] = alias_manager.transform(args)
+        start_time = timeit.default_timer()
+        args = kwargs.get('args')
+        alias_manager = AliasManager(**kwargs)
 
-    elapsed_time = timeit.default_timer() - start_time
-    logger.debug(DEBUG_MSG_WITH_TIMING, args, elapsed_time)
+        # [:] will keep the reference of the original args
+        args[:] = alias_manager.transform(args)
+
+        elapsed_time = (timeit.default_timer() - start_time) * 1000
+        logger.debug(DEBUG_MSG_WITH_TIMING, args, elapsed_time)
+
+        telemetry.set_execution_time(round(elapsed_time, 2))
+    except Exception as client_exception:  # pylint: disable=broad-except
+        telemetry.set_exception(client_exception)
+        raise
+    finally:
+        telemetry.conclude()
+
 
 COMMAND_LOADER_CLS = AliasExtensionLoader

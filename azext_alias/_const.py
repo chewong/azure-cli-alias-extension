@@ -13,16 +13,12 @@ COLLISION_CHECK_LEVEL_DEPTH = 5
 
 PLACEHOLDER_REGEX = r'\s+{\d+}'
 PLACEHOLDER_SPLIT_REGEX = r'\s*{\d+\.split\(((\'.*\')|(".*"))\)\[\d+\]}'
-QUOTES_REGEX = r'^[\'|\"]|[\'|\"]$'
 
 INCONSISTENT_INDEXING_ERROR = 'azure-cli-alias-extension: Placeholder indexing should be zero-indexed, \
 but {} is missing in "{}"'
 INSUFFICIENT_POS_ARG_ERROR = 'azure-cli-alias-extension: {} takes exactly {} argument(s) ({} given)'
-PARSE_ERROR = 'azure-cli-alias-extension: Error parsing the configuration file'
-DUPLICATE_SECTION_ERROR = 'azure-cli-alias-extension: It looks like your alias configuration file contains \
-duplicated aliases. Please fix the problem manually.'
-DUPLICATE_OPTION_ERROR = 'azure-cli-alias-extension: It looks like your alias configuration file contains \
-multiple commands in a single alias. Please fix the problem manually. '
+CONFIG_PARSING_ERROR = 'azure-cli-alias-extension: Error parsing the configuration file - %s. \
+Please fix the problem manually.'
 DEBUG_MSG = 'Alias Manager: Transforming "%s" to "%s"'
 DEBUG_MSG_WITH_TIMING = 'Alias Manager: Transformed args to %s in %.3fs'
 POS_ARG_DEBUG_MSG = 'Alias Manager: Transforming "{}" to "{}", with the following positional arguments: '

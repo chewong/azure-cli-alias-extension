@@ -28,6 +28,9 @@ command = iot {0}test {1}test
 [pos-arg-2]
 command = ad {0} {1}
 
+[pos-arg-3 {0} {1}]
+command = sf {0} {0} {1} {1}
+
 [cp {0} {1}]
 command = storage blob copy start-batch --source-uri {0} --destination-container {1}
 
@@ -42,6 +45,9 @@ command = ac ls
 
 [-h]
 command = account
+
+[storage-connect {0} {1}]
+command = az storage account connection-string -g {0} -n {1} -otsv
 '''
 
 COLLISION_MOCK_ALIAS_STRING = '''
@@ -61,6 +67,19 @@ command = monitor
 
 [mn]
 command = account
+'''
+
+DUP_OPTION_MOCK_ALIAS_STRING = '''
+[mn]
+command = monitor
+command = account
+'''
+
+MALFORMED_MOCK_ALIAS_STRING = '''
+[mn]
+command = monitor
+
+aodfgojadofgjaojdfog
 '''
 
 TEST_RESERVED_COMMANDS = ['account list-locations',
