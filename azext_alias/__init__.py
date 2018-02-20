@@ -8,7 +8,7 @@ from knack.log import get_logger
 from azure.cli.core import AzCommandsLoader
 
 logger = get_logger(__name__)
-VERSION = '0.0.2'
+VERSION = '0.0.1'
 
 
 class AliasExtensionLoader(AzCommandsLoader):
