@@ -5,6 +5,6 @@ source = azext_alias
 [report]
 ignore_errors = True
 omit =
-    azext_alias/test/*
+    azext_alias/tests/*
     setup.py
     azext_alias/telemetry/telemetry.py
