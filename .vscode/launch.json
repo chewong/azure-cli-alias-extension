@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "pythonPath": "${config:python.pythonPath}",
-            "program": "${workspaceFolder}/test/test_alias.py",
+            "program": "${workspaceFolder}/azext_alias/test/test_alias.py",
             "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/azext_alias:"

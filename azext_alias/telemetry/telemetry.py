@@ -19,6 +19,7 @@ ALIAS_EXTENSION_PREFIX = 'Context.Default.Extension.Alias.'
 logger = get_logger(__name__)
 
 
+# pylint: disable=too-many-instance-attributes
 class AliasExtensionTelemetrySession(object):
 
     def __init__(self):

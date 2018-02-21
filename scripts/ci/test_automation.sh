@@ -13,4 +13,4 @@ title 'Running test_setup.sh...'
 . $TRAVIS_BUILD_DIR/scripts/ci/test_setup.sh
 
 title 'Executing unit tests...'
-coverage run test/test_alias.py
+coverage run azext_alias/test/test_alias.py

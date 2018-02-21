@@ -67,7 +67,7 @@ $ export PYTHONPATH=$(pwd)/src:${PYTHONPATH}
 $ cd azure-cli-alias-extension
 $ pip install -r requirements.txt
 $ pip install .
-$ python test/test_alias.py
+$ python azext_alias/test/test_alias.py
 ```
 
 To run pylint:
