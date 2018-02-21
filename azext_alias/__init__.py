@@ -17,11 +17,9 @@ class AliasExtensionLoader(AzCommandsLoader):
         from azure.cli.core.commands import CliCommandType
         from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
 
-        example_custom = CliCommandType(operations_tmpl='test')
-
         super(AliasExtensionLoader, self).__init__(cli_ctx=cli_ctx,
                                                    min_profile='2017-03-10-profile',
-                                                   custom_command_type=example_custom)
+                                                   custom_command_type=CliCommandType())
 
         self.cli_ctx.register_event(EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE, alias_event_handler)
 

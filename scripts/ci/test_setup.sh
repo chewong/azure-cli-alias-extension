@@ -17,7 +17,7 @@ title 'Cloning Azure/azure-cli...'
 git clone https://github.com/Azure/azure-cli.git $HOME_DIR/azure-cli
 
 title 'Setting PYTHONPATH...'
-# Set PYTHONPATH to point to azure-cli-core and azext_alias
+# Point PYTHONPATH to azure-cli-core and azext_alias
 export PYTHONPATH=$HOME_DIR/azure-cli/src/azure-cli-core:$TRAVIS_BUILD_DIR/azext_alias:${PYTHONPATH}
 title $PYTHONPATH
 

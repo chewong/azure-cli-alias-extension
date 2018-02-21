@@ -46,7 +46,9 @@ class AliasManager(object):
         self.load_alias_hash()
 
     def load_alias_table(self):
-        """ Load (create, if not exist) the alias config file """
+        """
+        Load (create, if not exist) the alias config file.
+        """
         try:
             # w+ creates the alias config file if it does not exist
             open_mode = 'r+' if os.path.exists(GLOBAL_ALIAS_PATH) else 'w+'
@@ -60,14 +62,18 @@ class AliasManager(object):
             telemetry.set_exception(exception)
 
     def load_alias_hash(self):
-        """ Load (create, if not exist) the alias hash file """
+        """
+        Load (create, if not exist) the alias hash file.
+        """
         # w+ creates the alias hash file if it does not exist
         open_mode = 'r+' if os.path.exists(GLOBAL_ALIAS_HASH_PATH) else 'w+'
         with open(GLOBAL_ALIAS_HASH_PATH, open_mode) as alias_config_hash_file:
             self.alias_config_hash = alias_config_hash_file.read()
 
     def load_collided_alias(self):
-        """ Load (create, if not exist) the collided alias file """
+        """
+        Load (create, if not exist) the collided alias file.
+        """
         # w+ creates the alias config file if it does not exist
         open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
         with open(GLOBAL_COLLIDED_ALIAS_PATH, open_mode) as collided_alias_file:
@@ -76,8 +82,11 @@ class AliasManager(object):
 
     def detect_alias_config_change(self):
         """
-        Return False if the alias configuration file has not been changed since the last run.
-        Otherwise, return True.
+        Change if the alias configuration has changed since the last run.
+
+        Returns:
+            False if the alias configuration file has not been changed since the last run.
+            Otherwise, return True.
         """
         # Do not load the entire command table if there is a parse error
         if self.parse_error():
@@ -91,9 +100,15 @@ class AliasManager(object):
         return False
 
     def transform(self, args):
-        """ Transform any aliases in args to their respective commands """
-        # If we have an alias collision or parse error,
-        # do not perform anything and simply return the original input args
+        """
+        Transform any aliases in args to their respective commands.
+
+        Args:
+            args: A list of space-delimited command input extracted directly from the console.
+
+        Returns:
+            A list of transformed commands according to the alias configuration file.
+        """
         if self.parse_error():
             # Write an empty hash so next run will check the config file against the entire command table again
             self.write_alias_config_hash(True)
@@ -142,19 +157,16 @@ class AliasManager(object):
                     # Skip the next arg because it has been already consumed as a positional argument above
                     next(alias_iter)
                 logger.debug(pos_arg_debug_msg)
-            else: # DO NOT perform anything if there is no positional argument to inject
-                pass
 
             # Invoke split() because the command derived from the alias might contain spaces
             transformed_commands += cmd_derived_from_alias.split()
 
-        transformed_commands = self.post_transform(transformed_commands)
-
-        return transformed_commands
+        return self.post_transform(transformed_commands)
 
     def build_collision_table(self, levels):
         """
-        Check every first word in each alias, and build the collision table
+        Build the collision table according to the alias configuration file against the entire command table.
+
         if the word collided with a reserved command. self.collided_alias is structured as:
         {
             'collided_alias': [the command level at which collision happens]
@@ -166,6 +178,9 @@ class AliasManager(object):
         This means that 'account' is a reserved command in level 1 and level 2 of the command tree because
         (az account ...) and (az storage account ...)
              lvl 1                        lvl 2
+
+        Args:
+            levels: the amount of levels we tranverse through the command table tree.
         """
         for alias in self.alias_table.sections():
             # Only care about the first word in the alias because alias
@@ -180,13 +195,23 @@ class AliasManager(object):
         telemetry.set_collided_aliases(list(self.collided_alias.keys()))
 
     def get_full_alias(self, query):
-        """ Return the full alias (with the placeholders, if any) given a search query """
+        """
+        Get the full alias given a search query.
+
+        Args:
+            query: The query this function performs searching on.
+
+        Returns:
+            The full alias (with the placeholders, if any).
+        """
         if query in self.alias_table.sections():
             return query
         return next((section for section in self.alias_table.sections() if section.split()[0] == query), '')
 
     def load_full_command_table(self):
-        """ Perform a full load of the command table to get all the reserved command words """
+        """
+        Perform a full load of the command table to get all the reserved command words.
+        """
         load_cmd_tbl_func = self.kwargs.get('load_cmd_tbl_func', None)
         if load_cmd_tbl_func:
             self.reserved_commands = list(load_cmd_tbl_func([]).keys())
@@ -194,7 +219,10 @@ class AliasManager(object):
 
     def post_transform(self, args):
         """
-        Inject environment variables, and write hash to alias hash file after transforming alias to commands
+        Inject environment variables, and write hash to alias hash file after transforming alias to commands.
+
+        Args:
+            args: A list of args to post-transform.
         """
         # Ignore 'az' if it is the first command
         args = args[1:] if args and args[0] == 'az' else args
@@ -214,14 +242,17 @@ class AliasManager(object):
     def write_alias_config_hash(self, empty_hash=False):
         """
         Write self.alias_config_hash to the alias hash file.
-        An empty hash means that we need to validate the hash file in the next run
+
+        Args:
+            empty_hash: True if we want to write an empty string into the file. Empty string in the alias hash file
+                means that we have to perform a full load of the command table in the next run.
         """
         with open(GLOBAL_ALIAS_HASH_PATH, 'w') as alias_config_hash_file:
             alias_config_hash_file.write('' if empty_hash else self.alias_config_hash)
 
     def write_collided_alias(self):
         """
-        Write the collided aliases into file
+        Write the collided aliases string into the collided alias file.
         """
         # w+ creates the alias config file if it does not exist
         open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
@@ -231,13 +262,27 @@ class AliasManager(object):
 
     def parse_error(self):
         """
-        There is a parse error if there are strings inside the alias
-        config file but there is no alias loaded in self.alias_table
+        Check if there is a configuration parsing error.
+
+        A parsing error has occurred if there are strings inside the alias config file
+        but there is no alias loaded in self.alias_table.
+
+        Returns:
+            True if there is an error parsing the alias configuration file. Otherwises, false.
         """
         return not self.alias_table.sections() and self.alias_config_str
 
     @staticmethod
     def process_exception_message(exception):
+        """
+        Process an exception message.
+
+        Args:
+            exception: The exception to process.
+
+        Returns:
+            A filtered string summarizing the exception.
+        """
         exception_message = str(exception)
         for replace_char in ['\t', '\n', '\\n']:
             exception_message = exception_message.replace(replace_char, '' if replace_char != '\t' else ' ')
@@ -248,6 +293,13 @@ class AliasManager(object):
         """
         Generate an tuple iterator ([0], [1]) where the [0] is the positional argument
         placeholder and [1] is the argument value. e.g. ('{0}', pos_arg_1) -> ('{1}', pos_arg_2) -> ...
+
+        Args:
+            alias: The current alias we are processing.
+            args: The list of input commands.
+            start_index: The index where we start selecting the positional arguments
+                (one-index instead of zero-index).
+            num_pos_args: The number of positional arguments that this alias has.
         """
         pos_args = args[start_index: start_index + num_pos_args]
         if len(pos_args) != num_pos_args:
@@ -258,5 +310,13 @@ class AliasManager(object):
 
     @staticmethod
     def count_positional_args(arg):
-        """ Count how many positional arguments ({0}, {1} ...) there are. """
+        """
+        Count how many positional arguments ({0}, {1} ...) there are.
+
+        Args:
+            arg: The word which this function performs counting on.
+
+        Returns:
+            The number of placeholders in arg.
+        """
         return len(re.findall(PLACEHOLDER_REGEX, arg))

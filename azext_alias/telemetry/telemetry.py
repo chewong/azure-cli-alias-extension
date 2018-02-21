@@ -33,7 +33,9 @@ class AliasExtensionTelemetrySession(object):
         self.number_of_aliases_registered = 0
 
     def generate_payload(self):
-        """ Generate a list of telemetry events as payload """
+        """
+        Generate a list of telemetry events as payload
+        """
         events = []
         transformation_task = self._get_alias_transformation_properties()
         transformation_task.update(self._get_based_properties())
