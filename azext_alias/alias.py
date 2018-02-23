@@ -3,16 +3,16 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
+import sys
 import os
 import re
 import hashlib
 import json
-from configparser import ConfigParser
 
 from knack.log import get_logger
 from knack.util import CLIError
 
-from azext_alias.telemetry import telemetry
+from azext_alias import telemetry
 from azext_alias._const import (
     GLOBAL_CONFIG_DIR,
     ALIAS_FILE_NAME,
@@ -25,6 +25,11 @@ from azext_alias._const import (
     DEBUG_MSG,
     POS_ARG_DEBUG_MSG,
     COLLISION_CHECK_LEVEL_DEPTH)
+
+if sys.version_info.major == 3:
+    from six.moves.configparser import ConfigParser
+else:
+    from six.moves.configparser import SafeConfigParser as ConfigParser
 
 GLOBAL_ALIAS_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_FILE_NAME)
 GLOBAL_ALIAS_HASH_PATH = os.path.join(GLOBAL_CONFIG_DIR, ALIAS_HASH_FILE_NAME)
@@ -78,7 +83,10 @@ class AliasManager(object):
         open_mode = 'r+' if os.path.exists(GLOBAL_COLLIDED_ALIAS_PATH) else 'w+'
         with open(GLOBAL_COLLIDED_ALIAS_PATH, open_mode) as collided_alias_file:
             collided_alias_str = collided_alias_file.read()
-            self.collided_alias = json.loads(collided_alias_str if collided_alias_str else '{}')
+            try:
+                self.collided_alias = json.loads(collided_alias_str if collided_alias_str else '{}')
+            except Exception:   # pylint: disable=broad-except
+                self.collided_alias = {}
 
     def detect_alias_config_change(self):
         """

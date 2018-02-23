@@ -5,8 +5,14 @@
 
 # pylint: disable=line-too-long,import-error,no-self-use,import-error,deprecated-method,pointless-string-statement
 
+import sys
 import os
 import unittest
+
+if sys.version_info.major == 3:
+    from six.moves.configparser import ConfigParser
+else:
+    from six.moves.configparser import SafeConfigParser as ConfigParser
 
 from knack.util import CLIError
 from ddt import ddt, data
@@ -113,9 +119,14 @@ class TestAlias(unittest.TestCase):
         alias_manager = self.get_alias_manager()
         self.assertFalse(alias_manager.parse_error())
 
-    @data(DUP_SECTION_MOCK_ALIAS_STRING, DUP_OPTION_MOCK_ALIAS_STRING,
-          MALFORMED_MOCK_ALIAS_STRING, 'Malformed alias config file string')
-    def test_parse_error(self, value):
+    @data(DUP_SECTION_MOCK_ALIAS_STRING, DUP_OPTION_MOCK_ALIAS_STRING)
+    def test_parse_error_python_3(self, value):
+        if sys.version_info.major == 3:
+            alias_manager = self.get_alias_manager(value)
+            self.assertTrue(alias_manager.parse_error())
+
+    @data(MALFORMED_MOCK_ALIAS_STRING, 'Malformed alias config file string')
+    def test_parse_error_python_2_3(self, value):
         alias_manager = self.get_alias_manager(value)
         self.assertTrue(alias_manager.parse_error())
 
@@ -150,18 +161,17 @@ class TestAlias(unittest.TestCase):
 class MockAliasManager(alias.AliasManager):
 
     def load_alias_table(self):
-        from configparser import ConfigParser
 
         self.alias_config_str = self.kwargs.get('mock_alias_str', '')
         try:
-            try:
+            read_string_fn = getattr(self.alias_table, 'read_string', None)
+            if callable(read_string_fn):
+                # Python 3.x implementation
+                self.alias_table.read_string(self.alias_config_str)
+            else:
                 # Python 2.x implementation
                 from StringIO import StringIO
                 self.alias_table.readfp(StringIO(self.alias_config_str))
-            except Exception:  # pylint: disable=broad-except
-                # Python 3.x implementation
-                self.alias_table = ConfigParser()
-                self.alias_table.read_string(self.alias_config_str)
         except Exception:  # pylint: disable=broad-except
             self.alias_table = ConfigParser()
 

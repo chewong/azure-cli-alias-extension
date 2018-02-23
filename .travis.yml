@@ -5,6 +5,9 @@ jobs:
     - stage: precheck
       script: . scripts/ci/precheck.sh
       python: 3.6
+    - stage: precheck
+      script: . scripts/ci/precheck.sh
+      python: 2.7
     - stage: test
       script: . scripts/ci/test_automation.sh
       python: 3.6
