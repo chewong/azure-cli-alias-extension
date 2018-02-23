@@ -9,7 +9,7 @@ An Azure CLI extension that provides command alias functionality. It aims to enh
 After updating your Azure CLI client to the latest version, run the following command to install the extension:
 
 ```bash
-$ az extension add --source https://github.com/chewong/azure-cli-alias-extension/releases/download/0.1.0/azure_cli_alias_extension-0.1.0-py2.py3-none-any.whl -y
+$ az extension add --source https://github.com/chewong/azure-cli-alias-extension/releases/download/0.1.0/alias-0.1.0-py2.py3-none-any.whl -y
 ```
 
 Run the following to verify your installation:
@@ -51,7 +51,7 @@ Before building locally, make sure you have [azure-cli virtual environment](http
 $ unset AZURE_EXTENSION_DIR
 $ cd azure-cli-alias-extension
 $ python setup.py bdist_wheel
-$ az extension add --source dist/azure_cli_alias_extension-0.1.0-py2.py3-none-any.whl --yes
+$ az extension add --source dist/alias-0.1.0-py2.py3-none-any.whl --yes
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------

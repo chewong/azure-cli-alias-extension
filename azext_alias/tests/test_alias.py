@@ -3,21 +3,17 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-# pylint: disable=line-too-long,import-error,no-self-use,import-error,deprecated-method,pointless-string-statement
+# pylint: disable=line-too-long,import-error,no-self-use,import-error,deprecated-method,pointless-string-statement,relative-import,no-member
 
 import sys
 import os
 import unittest
-
-if sys.version_info.major == 3:
-    from six.moves.configparser import ConfigParser
-else:
-    from six.moves.configparser import SafeConfigParser as ConfigParser
+from six.moves import configparser
 
 from knack.util import CLIError
-from ddt import ddt, data
 
 from azext_alias import alias
+from azext_alias.tests.ddt import ddt, data
 from azext_alias.tests._const import (DEFAULT_MOCK_ALIAS_STRING,
                                       COLLISION_MOCK_ALIAS_STRING,
                                       TEST_RESERVED_COMMANDS,
@@ -164,8 +160,7 @@ class MockAliasManager(alias.AliasManager):
 
         self.alias_config_str = self.kwargs.get('mock_alias_str', '')
         try:
-            read_string_fn = getattr(self.alias_table, 'read_string', None)
-            if callable(read_string_fn):
+            if sys.version_info.major == 3:
                 # Python 3.x implementation
                 self.alias_table.read_string(self.alias_config_str)
             else:
@@ -173,7 +168,7 @@ class MockAliasManager(alias.AliasManager):
                 from StringIO import StringIO
                 self.alias_table.readfp(StringIO(self.alias_config_str))
         except Exception:  # pylint: disable=broad-except
-            self.alias_table = ConfigParser()
+            self.alias_table = configparser.ConfigParser()
 
     def load_alias_hash(self):
         import hashlib
