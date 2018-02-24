@@ -1,5 +1,5 @@
 [MASTER]
-ignore-patterns=test_*,ddt
+ignore-patterns=test_*
 reports=no
 
 [MESSAGES CONTROL]
