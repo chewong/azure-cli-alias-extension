@@ -93,7 +93,7 @@ def test_transform_alias(self, test_case):
 
 def test_transform_collided_alias(self, test_case):
     alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
-    alias_manager.build_collision_table(5)
+    alias_manager.build_collision_table()
     self.assertEqual(test_case[1].split(), alias_manager.transform(test_case[0].split()))
 
 
@@ -124,14 +124,14 @@ def test_inconsistent_placeholder_index(self, test_case):
 
 
 def test_parse_error_python_3(self, test_case):
-    alias_manager = self.get_alias_manager(test_case)
-    self.assertTrue(alias_manager.parse_error())
-
-
-def test_parse_error_python_2_3(self, test_case):
     if sys.version_info.major == 3:
         alias_manager = self.get_alias_manager(test_case)
         self.assertTrue(alias_manager.parse_error())
+
+
+def test_parse_error_python_2_3(self, test_case):
+    alias_manager = self.get_alias_manager(test_case)
+    self.assertTrue(alias_manager.parse_error())
 
 
 def generate_test(test_type, test_case):
@@ -155,14 +155,12 @@ TEST_FN = {
 class TestAlias(unittest.TestCase):
 
     def test_build_empty_collision_table(self):
-        alias_manager = self.get_alias_manager(
-            DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        alias_manager = self.get_alias_manager(DEFAULT_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
         self.assertDictEqual(dict(), alias_manager.collided_alias)
 
     def test_build_non_empty_collision_table(self):
-        alias_manager = self.get_alias_manager(
-            COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
-        alias_manager.build_collision_table(2)
+        alias_manager = self.get_alias_manager(COLLISION_MOCK_ALIAS_STRING, TEST_RESERVED_COMMANDS)
+        alias_manager.build_collision_table(levels=2)
         self.assertDictEqual({'account': [1, 2], 'dns': [2], 'list-locations': [2]}, alias_manager.collided_alias)
 
     def test_non_parse_error(self):
@@ -190,8 +188,7 @@ class TestAlias(unittest.TestCase):
     def assertAlias(self, value):
         """ Assert the alias with the default alias config file """
         alias_manager = self.get_alias_manager()
-        self.assertEqual(value[1].split(),
-                         alias_manager.transform(value[0].split()))
+        self.assertEqual(value[1].split(), alias_manager.transform(value[0].split()))
 
     def assertPostTransform(self, value, mock_alias_str=DEFAULT_MOCK_ALIAS_STRING):
         alias_manager = self.get_alias_manager(mock_alias_str=mock_alias_str)
@@ -217,8 +214,7 @@ class MockAliasManager(alias.AliasManager):
 
     def load_alias_hash(self):
         import hashlib
-        self.alias_config_hash = hashlib.sha1(
-            self.alias_config_str.encode('utf-8')).hexdigest()
+        self.alias_config_hash = hashlib.sha1(self.alias_config_str.encode('utf-8')).hexdigest()
 
     def load_collided_alias(self):
         pass
@@ -230,10 +226,12 @@ class MockAliasManager(alias.AliasManager):
         pass
 
 
+# Inject data-driven tests into TestAlias class
+for test_type, test_cases in TEST_DATA.items():
+    for test_index, test_case in enumerate(test_cases, 1):
+        setattr(TestAlias, '{}_{}'.format(test_type, test_index), generate_test(test_type, test_case))
+
 
 if __name__ == '__main__':
-    for test_type, test_cases in TEST_DATA.items():
-        for index, test_case in enumerate(test_cases, 1):
-            setattr(TestAlias, '{}_{}'.format(test_type, index), generate_test(test_type, test_case))
     test_suite = unittest.TestLoader().loadTestsFromTestCase(TestAlias)
     unittest.TextTestRunner(verbosity=2).run(test_suite)
