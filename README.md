@@ -9,7 +9,7 @@ An Azure CLI extension that provides command alias functionality. It aims to enh
 After updating your Azure CLI client to the latest version, run the following command to install the extension:
 
 ```bash
-$ az extension add --source https://github.com/chewong/azure-cli-alias-extension/releases/download/0.1.0/alias-0.1.0-py2.py3-none-any.whl -y
+$ az extension add --name alias
 ```
 
 Run the following to verify your installation:
@@ -17,7 +17,7 @@ Run the following to verify your installation:
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              azure-cli-alias-extension  0.1.0
+whl              alias                      0.1.0
 ```
 
 To author the alias configuration file on OSX/Ubuntu (bash):
@@ -39,7 +39,6 @@ $ git clone https://github.com/chewong/azure-cli-alias-extension.git
 $ cd azure-cli-alias-extension
 $ export AZURE_EXTENSION_DIR=~/.azure/devcliextensions
 $ pip install --upgrade --target $AZURE_EXTENSION_DIR/azure-cli-alias-extension $(pwd)
-$ pip install .
 ```
 3. Continue to develop your extension.
 4. Any time you make changes to your extension and want to see them reflected in the CLI, run `pip install --upgrade --target $AZURE_EXTENSION_DIR/azure-cli-alias-extension $(pwd)`.
@@ -55,7 +54,7 @@ $ az extension add --source dist/alias-0.1.0-py2.py3-none-any.whl --yes
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              azure-cli-alias-extension  0.1.0
+whl              alias                      0.1.0
 ```
 
 ## Testing and Others
@@ -67,7 +66,7 @@ $ export PYTHONPATH=$(pwd)/src:${PYTHONPATH}
 $ cd azure-cli-alias-extension
 $ pip install -r requirements.txt
 $ pip install .
-$ python azext_alias/tests/test_alias.py
+$ python -m unittest discover azext_alias/tests/
 ```
 
 To run pylint:
