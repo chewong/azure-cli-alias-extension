@@ -17,7 +17,7 @@ Run the following to verify your installation:
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.1.0
+whl              alias                      0.2.0
 ```
 
 To author the alias configuration file on OSX/Ubuntu (bash):
@@ -50,11 +50,11 @@ Before building locally, make sure you have [azure-cli virtual environment](http
 $ unset AZURE_EXTENSION_DIR
 $ cd azure-cli-alias-extension
 $ python setup.py bdist_wheel
-$ az extension add --source dist/alias-0.1.0-py2.py3-none-any.whl --yes
+$ az extension add --source dist/alias-0.2.0-py2.py3-none-any.whl --yes
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.1.0
+whl              alias                      0.2.0
 ```
 
 ## Testing and Others

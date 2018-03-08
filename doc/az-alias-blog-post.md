@@ -21,7 +21,7 @@ The command above will output a list of installed extensions in your CLI:
 ```
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.1.0
+whl              alias                      0.2.0
 ```
 
 ## Working with the Alias Extension
@@ -37,10 +37,9 @@ type nul > %HOMEPATH%/.azure/alias
 ```
 
 All your alias definitions will be stored in the alias configuration file. The configuration file is based on the INI configuration format and has the following additional rules when defining aliases:
-- The alias is surrounded by a pair of square brackets
 - Each alias has a section named "command", which contains the Azure CLI commands that the alias maps to
 - Each alias can contain multiple commands in the command section
-- Alias and its command can contain placeholders that accept positional arguments. Placeholders are delimited by braces `{}`. Each replacement field contains a zero-based numeric index of a positional argument
+- Alias and its command can contain placeholders that accept positional arguments. Placeholders are delimited by double braces `{{}}`. Each replacement field contains a number and a variable name.
 - With Python 3 installed on your system, duplicated aliases or duplicated commands in a single alias are not allowed
 - With Python 2 installed on your system, in case of a duplicated alias/command, the latter alias/command will take precedence
 - Error parsing the alias configuration will lead to inability to use the alias feature
@@ -105,16 +104,16 @@ az get-vm-ip-addr
 Last but not least, positional arguments enable you to pass in custom arguments to your aliases. For example, in your alias configuration file:
 
 ```
-[create-storage-ac {0} {1}]
-command = storage account create --resource-group {0} --name {1}
+[create-storage-ac {{ rg }} {{ name }}]
+command = storage account create --resource-group {{ rg }} --name {{ name }}
 
-[create-storage-container {0}]
-command = storage container create --name {0}
+[create-storage-container {{ container_name }}]
+command = storage container create --name {{ container_name }}
 
-[upload {0} {1}]
-command = storage blob upload-batch --source {0} --destination {1}
+[upload {{ local_path }} {{ container_name }}]
+command = storage blob upload-batch --source {{ local_path }} --destination {{ container_name }}
 ```
-You can execute the following commands to create a storage account and a storage container, as well as uploading local files to a given storage container. Note that the positional arguments are spaced-delimited, meaning for each positional argument, it cannot contain any spaces, or the command might behave abnormally.
+You can execute the following commands to create a storage account and a storage container, as well as uploading local files to a given storage container. Note that the positional arguments are spaced-delimited, meaning for each positional argument, it cannot contain any spaces. If you would like to pass in a positional argument with spaces, you will have to surround the argument with a pair of quotes.
 ```bash
 # Equivalent to 'az storage account create --resource-group myResourceGroup --name mystoragesccount'
 az create-storage-ac myResourceGroup mystoragesccount
@@ -132,9 +131,26 @@ az create-storage-container mycontainer
 az upload mylocalfolder mycontainer
 ```
 
-## Removing the Alias Extension
-To remove the extension, you can execute the following commands:
+Since the alias extension utilize the Jinja template engine, you can also perform additional string processing to the positional arguments that you pass in. For example:
 ```
+[storage-ls {{ url }}]
+command = storage blob list
+    --account-name {{ url.replace('https://', '').split('.')[0] }}
+    --container-name {{ url.replace('https://', '').split('/')[1] }}
+```
+
+`storage-ls` alias basically accepts a storage container URL, and uses the `replace` and `split` string functions to extract the account name and the container name from the URL.
+
+```bash
+# Equivalent to 'storage blob list --account-name mystorageaccount --container-name mycontainer'
+az storage-ls https://mystorageaccount.blob.core.windows.net/mycontainer
+```
+
+For syntax references, you can check out the Jinja documentation [here](http://jinja.pocoo.org/docs/2.10/templates/).
+
+## Uninstalling the Alias Extension
+To uninstall the extension, you can execute the following commands:
+```bash
 az extension remove --name alias
 ```
 
