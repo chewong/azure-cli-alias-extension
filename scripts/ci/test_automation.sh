@@ -12,5 +12,5 @@ function title {
 title 'Running test_setup.sh...'
 . $TRAVIS_BUILD_DIR/scripts/ci/test_setup.sh
 
-title 'Executing unit tests...'
-python azext_alias/tests/test_alias.py
+title 'Running unit tets...'
+python -m unittest discover $TRAVIS_BUILD_DIR/azext_alias/tests/

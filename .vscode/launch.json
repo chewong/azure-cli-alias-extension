@@ -11,6 +11,8 @@
             "pythonPath": "${config:python.pythonPath}",
             "program": "${workspaceFolder}/azext_alias/tests/test_alias.py",
             "cwd": "${workspaceFolder}",
+            "args": [
+            ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/azext_alias:"
             }
