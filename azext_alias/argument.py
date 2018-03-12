@@ -12,37 +12,60 @@ from knack.util import CLIError
 
 from jinja2 import Template
 from azext_alias._const import (
-    POS_ARG_NAME_REGEX,
-    NUMBER_PLACEHOLDER_REGEX,
     DUPLICATED_PLACEHOLDER_ERROR,
     RENDER_TEMPLATE_ERROR,
     INSUFFICIENT_POS_ARG_ERROR,
     PLACEHOLDER_EVAL_ERROR,
-    EXPRESSION_REGEX
+    PLACEHOLDER_BRACKETS_ERROR
 )
 
 
-def get_pos_args_names(arg):
+def get_pos_args(arg, include_brackets=False, check_duplicates=False, number_only=False):
     """
-    Get all the positional arguments' names in order.
+    Get all the positional arguments in order.
 
     Args:
         arg: The word which this function performs searching on.
+        check_duplicates: True if we want to check for duplicated positional arguments.
+        number_only: True if we want to extract placeholders that are numbers only.
 
     Returns:
-        A list of positional arguments' names.
+        A list of positional arguments in order.
     """
-    pos_args_name = list(map(str.strip, re.findall(POS_ARG_NAME_REGEX, arg)))
+    pos_args = []
+    last_match = None
+    for cur_match in re.finditer(r'\s*{{|}}\s*', arg):
+        matched_text = cur_match.group().strip()
+        if not last_match and matched_text == '{{':
+            last_match = cur_match
+            continue
+
+        last_matched_text = '' if not last_match else last_match.group().strip()
+        # Check if the positional argument is enclosed with {{ }} properly
+        if (not last_matched_text and matched_text == '}}') or (last_matched_text == '{{' and matched_text != '}}'):
+            raise CLIError(PLACEHOLDER_BRACKETS_ERROR.format(arg))
+        elif last_matched_text == '{{' and matched_text == '}}':
+            # Extract start and end index of the positional argument
+            start_index, end_index = last_match.span()[1], cur_match.span()[0]
+            pos_arg = arg[start_index: end_index]
+
+            if number_only and pos_arg.strip().isdigit():
+                pos_args.append('{{' + pos_arg + '}}' if include_brackets else pos_arg.strip())
+            elif not number_only:
+                pos_arg = '_{}'.format(pos_arg.strip()) if pos_arg.strip().isdigit() else pos_arg
+                pos_args.append('{{' + pos_arg + '}}' if include_brackets else pos_arg.strip())
+
+            last_match = None
+
+    # last_match did not get reset - that means brackets are not enclosed properly
+    if last_match:
+        raise CLIError(PLACEHOLDER_BRACKETS_ERROR.format(arg))
 
     # Make sure there is no duplicated positional argument
-    if len(pos_args_name) != len(set(pos_args_name)):
+    if check_duplicates and len(pos_args) != len(set(pos_args)):
         raise CLIError(DUPLICATED_PLACEHOLDER_ERROR.format(arg))
 
-    for i, pos_arg_name in enumerate(pos_args_name):
-        if pos_arg_name.isdigit():
-            pos_args_name[i] = '_{}'.format(pos_arg_name)
-
-    return pos_args_name
+    return pos_args
 
 
 def stringify_placeholder_expr(arg):
@@ -58,7 +81,7 @@ def stringify_placeholder_expr(arg):
         A processed string where placeholders are surrounded by "" and
         numbered placeholders are prepended with "_".
     """
-    number_placeholders = list(map(str.strip, re.findall(NUMBER_PLACEHOLDER_REGEX, arg)))
+    number_placeholders = get_pos_args(arg, include_brackets=True, number_only=True)
     for number_placeholder in number_placeholders:
         number = re.search(r'\d+', number_placeholder).group()
         arg = arg.replace(number_placeholder, '{{_' + number + '}}')
@@ -78,7 +101,7 @@ def build_pos_args_table(full_alias, args, start_index):
         A dictionary with the key beign the name of the placeholder and its value
         being the respective positional argument.
     """
-    pos_args_placeholder = get_pos_args_names(full_alias)
+    pos_args_placeholder = get_pos_args(full_alias, check_duplicates=True)
     pos_args = args[start_index: start_index + len(pos_args_placeholder)]
 
     if len(pos_args_placeholder) != len(pos_args):
@@ -121,10 +144,11 @@ def render_template(cmd_derived_from_alias, pos_args_table):
 
         return rendered
     except Exception as exception:
+        # Exception raised from runtime error
         if isinstance(exception, CLIError):
             raise
 
-        # Template has compile error
+        # Template has compile errors
         split_exception_message = str(exception).split()
 
         # Check if the error message provides the index of the erroneous character
@@ -150,13 +174,14 @@ def check_runtime_errors(cmd_derived_from_alias, pos_args_table):
     that there is no runtime error (such as index out of range).
 
     Args:
-        cmd_derived_from_alias:
-        pos_args_table:
+        cmd_derived_from_alias: The command derived from the alias
+            (include any positional argument placehodlers)
+        pos_args_table: The positional argument table.
     """
     for placeholder, value in pos_args_table.items():
         exec('{} = "{}"'.format(placeholder, value))  # pylint: disable=exec-used
 
-    expressions = list(map(str.strip, re.findall(EXPRESSION_REGEX, cmd_derived_from_alias)))
+    expressions = get_pos_args(cmd_derived_from_alias)
     for expression in expressions:
         try:
             exec(expression)  # pylint: disable=exec-used

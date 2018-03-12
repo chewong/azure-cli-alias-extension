@@ -10,7 +10,7 @@ import unittest
 from knack.util import CLIError
 
 from azext_alias.argument import (
-    get_pos_args_names,
+    get_pos_args,
     stringify_placeholder_expr,
     build_pos_args_table,
     render_template,
@@ -20,15 +20,34 @@ from azext_alias.argument import (
 
 class TestArgument(unittest.TestCase):
 
-    def test_get_pos_args_names(self):
-        self.assertListEqual(['arg_1', 'arg_2'], get_pos_args_names('{{ arg_1 }} {{ arg_2 }}'))
+    def test_get_pos_args(self):
+        self.assertListEqual(['arg_1', 'arg_2'], get_pos_args('{{ arg_1 }} {{ arg_2 }}'))
 
-    def test_get_pos_args_names_with_numbers(self):
-        self.assertListEqual(['_0', '_1'], get_pos_args_names('{{ 0 }} {{ 1 }}'))
+    def test_get_pos_args_with_numbers(self):
+        self.assertListEqual(['_0', '_1'], get_pos_args('{{ 0 }} {{ 1 }}'))
 
-    def test_get_pos_args_names_duplicate(self):
+    def test_get_pos_args_with_strings_and_numbers(self):
+        self.assertListEqual(['_0', '_1', 'arg_1', 'arg_2'], get_pos_args('{{ 0 }} {{ 1 }} {{ arg_1 }} {{ arg_2 }}'))
+
+    def test_get_pos_args_duplicate(self):
         with self.assertRaises(CLIError):
-            get_pos_args_names('{{ arg_1 }} {{ arg_1 }}')
+            get_pos_args('{{ arg_1 }} {{ arg_1 }}', check_duplicates=True)
+
+    def test_get_pos_args_no_opening_bracket(self):
+        with self.assertRaises(CLIError):
+            get_pos_args('arg_1 }}')
+
+    def test_get_pos_args_double_opening_bracket(self):
+        with self.assertRaises(CLIError):
+            get_pos_args('{{ {{ arg_1')
+
+    def test_get_pos_args_double_closing_bracket(self):
+        with self.assertRaises(CLIError):
+            get_pos_args('{{ arg_1 }} }}')
+
+    def test_get_pos_args_no_closing_bracket(self):
+        with self.assertRaises(CLIError):
+            get_pos_args('{{ arg_1 ')
 
     def test_stringify_placeholder_expr(self):
         self.assertEqual('"{{ arg_1 }}" "{{ arg_2 }}"', stringify_placeholder_expr('{{ arg_1 }} {{ arg_2 }}'))
