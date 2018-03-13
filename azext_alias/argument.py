@@ -10,7 +10,7 @@ import shlex
 
 from knack.util import CLIError
 
-from jinja2 import Template
+import jinja2 as jinja
 from azext_alias._const import (
     DUPLICATED_PLACEHOLDER_ERROR,
     RENDER_TEMPLATE_ERROR,
@@ -20,20 +20,22 @@ from azext_alias._const import (
 )
 
 
-def get_pos_args(arg, include_brackets=False, check_duplicates=False, number_only=False):
+def get_placeholders(arg, check_duplicates=False):
     """
-    Get all the positional arguments in order.
+    Get all the placeholders' names in order.
+    Use the regex below to locate all the opening ({{) and closing brackets (}}).
+    After that, extract "stuff" inside the brackets.
 
     Args:
         arg: The word which this function performs searching on.
         check_duplicates: True if we want to check for duplicated positional arguments.
-        number_only: True if we want to extract placeholders that are numbers only.
 
     Returns:
         A list of positional arguments in order.
     """
-    pos_args = []
+    placeholders = []
     last_match = None
+    arg = normalize_placeholders(arg)
     for cur_match in re.finditer(r'\s*{{|}}\s*', arg):
         matched_text = cur_match.group().strip()
         if not last_match and matched_text == '{{':
@@ -45,48 +47,43 @@ def get_pos_args(arg, include_brackets=False, check_duplicates=False, number_onl
         if (not last_matched_text and matched_text == '}}') or (last_matched_text == '{{' and matched_text != '}}'):
             raise CLIError(PLACEHOLDER_BRACKETS_ERROR.format(arg))
         elif last_matched_text == '{{' and matched_text == '}}':
-            # Extract start and end index of the positional argument
+            # Extract start and end index of the placeholder name
             start_index, end_index = last_match.span()[1], cur_match.span()[0]
-            pos_arg = arg[start_index: end_index]
-
-            if number_only and pos_arg.strip().isdigit():
-                pos_args.append('{{' + pos_arg + '}}' if include_brackets else pos_arg.strip())
-            elif not number_only:
-                pos_arg = '_{}'.format(pos_arg.strip()) if pos_arg.strip().isdigit() else pos_arg
-                pos_args.append('{{' + pos_arg + '}}' if include_brackets else pos_arg.strip())
-
+            placeholders.append(arg[start_index: end_index].strip())
             last_match = None
 
-    # last_match did not get reset - that means brackets are not enclosed properly
+    # last_match did not reset - that means brackets are not enclosed properly
     if last_match:
         raise CLIError(PLACEHOLDER_BRACKETS_ERROR.format(arg))
 
-    # Make sure there is no duplicated positional argument
-    if check_duplicates and len(pos_args) != len(set(pos_args)):
+    # Make sure there is no duplicated placeholder names
+    if check_duplicates and len(placeholders) != len(set(placeholders)):
         raise CLIError(DUPLICATED_PLACEHOLDER_ERROR.format(arg))
 
-    return pos_args
+    return placeholders
 
 
-def stringify_placeholder_expr(arg):
+def normalize_placeholders(arg, inject_quotes=False):
     """
-    Jinja does not accept numbers as placeholder names,
-    so add a "_" before the number to make them valid placeholder names.
-    Surround placeholders expressions with "" so we can preserve spaces inside the positional arguments.
+    Normalize  names so that the template can be ingested into Jinja template engine
+    - Jinja does not accept numbers as placeholder names, so add a "_"
+        before the number to make them valid placeholder names.
+    - Surround placeholders expressions with "" so we can preserve spaces inside the positional arguments.
 
     Args:
         arg: The string to process.
+        inject_qoutes: True if we want to surround placeholders with a pair of quotes
 
     Returns:
         A processed string where placeholders are surrounded by "" and
         numbered placeholders are prepended with "_".
     """
-    number_placeholders = get_pos_args(arg, include_brackets=True, number_only=True)
+    number_placeholders = re.findall(r'{{\s*\d+\s*}}', arg)
     for number_placeholder in number_placeholders:
         number = re.search(r'\d+', number_placeholder).group()
         arg = arg.replace(number_placeholder, '{{_' + number + '}}')
 
-    return arg.replace('{{', '"{{').replace('}}', '}}"')
+    return arg.replace('{{', '"{{').replace('}}', '}}"') if inject_quotes else arg
 
 
 def build_pos_args_table(full_alias, args, start_index):
@@ -97,11 +94,12 @@ def build_pos_args_table(full_alias, args, start_index):
         full_alias: The full alias (including any placeholders).
         args: The arguments that the user inputs in the terminal.
         start_index: The index at which we start taking position arguments.
+
     Returns:
         A dictionary with the key beign the name of the placeholder and its value
         being the respective positional argument.
     """
-    pos_args_placeholder = get_pos_args(full_alias, check_duplicates=True)
+    pos_args_placeholder = get_placeholders(full_alias, check_duplicates=True)
     pos_args = args[start_index: start_index + len(pos_args_placeholder)]
 
     if len(pos_args_placeholder) != len(pos_args):
@@ -125,19 +123,20 @@ def render_template(cmd_derived_from_alias, pos_args_table):
     Args:
         cmd_derived_from_alias: The string to be injected with positional arguemnts.
         pos_args_table: The dictionary used to rendered.
+
     Returns:
         A processed string with positional arguments injected.
     """
     try:
-        cmd_derived_from_alias = stringify_placeholder_expr(cmd_derived_from_alias)
-        template = Template(cmd_derived_from_alias)
+        cmd_derived_from_alias = normalize_placeholders(cmd_derived_from_alias, inject_quotes=True)
+        template = jinja.Template(cmd_derived_from_alias)
 
         # Shlex.split allows us to split a string by spaces while preserving quoted substrings
         # (positional arguments in this case)
         rendered = shlex.split(template.render(pos_args_table))
 
         # Manually check if there is any runtime error (such as index out of range)
-        # since jinja2 only checks for compile error
+        # since Jinja template engine only checks for compile error
         # Only check for runtime errors if there is an empty string in rendered
         if '' in rendered:
             check_runtime_errors(cmd_derived_from_alias, pos_args_table)
@@ -148,7 +147,7 @@ def render_template(cmd_derived_from_alias, pos_args_table):
         if isinstance(exception, CLIError):
             raise
 
-        # Template has compile errors
+        # Template has some sort of compile errors
         split_exception_message = str(exception).split()
 
         # Check if the error message provides the index of the erroneous character
@@ -181,7 +180,7 @@ def check_runtime_errors(cmd_derived_from_alias, pos_args_table):
     for placeholder, value in pos_args_table.items():
         exec('{} = "{}"'.format(placeholder, value))  # pylint: disable=exec-used
 
-    expressions = get_pos_args(cmd_derived_from_alias)
+    expressions = get_placeholders(cmd_derived_from_alias)
     for expression in expressions:
         try:
             exec(expression)  # pylint: disable=exec-used
