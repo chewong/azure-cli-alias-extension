@@ -131,7 +131,7 @@ az create-storage-container mycontainer
 az upload mylocalfolder mycontainer
 ```
 
-Since the alias extension utilize the Jinja template engine, you can also perform additional string processing to the positional arguments that you pass in. For example:
+Since the alias extension utilizes the Jinja template engine, you can also perform additional string processing to the positional arguments that you pass in. For example:
 ```
 [storage-ls {{ url }}]
 command = storage blob list
