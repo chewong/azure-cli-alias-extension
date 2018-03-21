@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 ##############################################
 # Define colored output func
 function title {
@@ -9,19 +8,18 @@ function title {
     echo -e ${LGREEN}$1${CLEAR}
 }
 
-cd $TRAVIS_BUILD_DIR
-cd ..
-export HOME_DIR=$(pwd)
-
-title 'Cloning Azure/azure-cli...'
-git clone https://github.com/Azure/azure-cli.git $HOME_DIR/azure-cli
-
-title 'Setting PYTHONPATH...'
-# Point PYTHONPATH to azure-cli-core and azext_alias
-export PYTHONPATH=$HOME_DIR/azure-cli/src/azure-cli-core:$TRAVIS_BUILD_DIR/azext_alias:${PYTHONPATH}
-title PYTHONPATH=$PYTHONPATH
-echo
+# https://github.com/Azure/azure-cli-extensions/blob/master/scripts/ci/test_source.sh#L8
+title "Installing azure-cli-testsdk and azure-cli..."
+pip install "git+https://github.com/Azure/azure-cli@dev#egg=azure-cli-testsdk&subdirectory=src/azure-cli-testsdk" -q
 
 title 'Installing dependencies...'
-cd $TRAVIS_BUILD_DIR
-pip install -r requirements.txt
+pip install -r $TRAVIS_BUILD_DIR/requirements.txt -q
+
+title "Generating alias extension wheel file..."
+python setup.py bdist_wheel >/dev/null
+WHL_FILE=$(find $TRAVIS_BUILD_DIR/dist -name "alias*.whl")
+title "${WHL_FILE} generated."
+
+title "Installing alias extension..."
+az extension add --source $WHL_FILE --yes
+az extension list --output table
