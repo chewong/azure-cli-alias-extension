@@ -10,8 +10,6 @@ import shutil
 import tempfile
 import unittest
 
-from knack.util import CLIError
-
 from azure.cli.testsdk import ScenarioTest
 from azext_alias import (
     alias,
