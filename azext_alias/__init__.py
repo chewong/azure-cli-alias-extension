@@ -3,8 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-# pylint: disable=line-too-long
-
 import timeit
 
 from knack.log import get_logger
@@ -44,7 +42,8 @@ class AliasCommandLoader(AzCommandsLoader):
 
     def load_arguments(self, _):
         with self.argument_context('alias') as c:
-            c.argument('alias_name', options_list=['--name', '-n'], help='The name of the alias.', completer=get_alias_completer)
+            c.argument('alias_name', options_list=['--name', '-n'], help='The name of the alias.',
+                       completer=get_alias_completer)
             c.argument('alias_command', options_list=['--command', '-c'], help='The command that the alias points to.')
 
 
@@ -76,7 +75,8 @@ def alias_event_handler(_, **kwargs):
         if args[:2] == ['alias', 'create']:
             load_cmd_tbl_func = kwargs.get('load_cmd_tbl_func', lambda _: {})
             global cached_reserved_commands  # pylint: disable=global-statement
-            cached_reserved_commands = alias_manager.reserved_commands if alias_manager.reserved_commands else load_cmd_tbl_func([]).keys()
+            cached_reserved_commands = alias_manager.reserved_commands if alias_manager.reserved_commands \
+                                                                       else load_cmd_tbl_func([]).keys()
 
         elapsed_time = (timeit.default_timer() - start_time) * 1000
         logger.debug(DEBUG_MSG_WITH_TIMING, args, elapsed_time)

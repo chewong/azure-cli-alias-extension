@@ -144,16 +144,15 @@ class AliasManager(object):
 
         transformed_commands = []
         alias_iter = enumerate(args, 1)
-        ignore_next_iter = False
         for alias_index, alias in alias_iter:
-            # Directly append invalid alias or collided alias
-            if not alias or alias[0] == '-' or ignore_next_iter or (alias in self.collided_alias and
-                                                                    alias_index in self.collided_alias[alias]):
+            is_collided_alias = alias in self.collided_alias and alias_index in self.collided_alias[alias]
+            # Check if the current alias is a named argument
+            # index - 2 because alias_iter starts counting at index 1
+            is_named_arg = (alias_index > 1 and args[alias_index - 2].startswith('-'))
+            is_named_arg_flag = alias.startswith('-')
+            if not alias or is_collided_alias or is_named_arg or is_named_arg_flag:
                 transformed_commands.append(alias)
-                ignore_next_iter = alias and alias[0] == '-'
                 continue
-            else:
-                ignore_next_iter = False
 
             full_alias = self.get_full_alias(alias)
 
