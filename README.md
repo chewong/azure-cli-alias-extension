@@ -17,15 +17,22 @@ Run the following to verify your installation:
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.2.0
+whl              alias                      0.3.0
 ```
 
-To author the alias configuration file on OSX/Ubuntu (bash):
+To add an alias using Azure CLI:
+```bash
+$ az alias create -n <alias> -c <invoked_commands>
 ```
+
+All aliases are saved in an alias configuration file in the hidden azure folder under the home directory. To directly alter the alias configuration file on OSX/Ubuntu (bash):
+``` bash
 $ vim ~/.azure/alias
 ```
 
-To author the alias configuration file on Windows, change the directory to `%HOMEPATH%/.azure` in file explorer and edit it directly.
+To directly alter the alias configuration file on Windows, change the directory to `%HOMEPATH%/.azure` in file explorer and edit it directly.
+
+For the alias command specification, pelase visit [az-alias-command-spec](https://github.com/chewong/azure-cli-alias-extension/blob/dev/doc/az-alias-command-spec.md).
 
 For the configuration file specification, please visit [az-alias-spec](https://gist.github.com/chewong/2afb67374d700b34015d146f63a79b15)
 
@@ -38,10 +45,10 @@ Configure your machine [as follow](https://github.com/Azure/azure-cli/blob/maste
 $ git clone https://github.com/chewong/azure-cli-alias-extension.git
 $ cd azure-cli-alias-extension
 $ export AZURE_EXTENSION_DIR=~/.azure/devcliextensions
-$ pip install --upgrade --target $AZURE_EXTENSION_DIR/azure-cli-alias-extension $(pwd)
+$ pip install --upgrade --target $AZURE_EXTENSION_DIR/alias $(pwd)
 ```
 3. Continue to develop your extension.
-4. Any time you make changes to your extension and want to see them reflected in the CLI, run `pip install --upgrade --target $AZURE_EXTENSION_DIR/azure-cli-alias-extension $(pwd)`.
+4. Any time you make changes to your extension and want to see them reflected in the CLI, run `pip install --upgrade --target $AZURE_EXTENSION_DIR/alias $(pwd)`.
 
 
 ## Building
@@ -50,23 +57,19 @@ Before building locally, make sure you have [azure-cli virtual environment](http
 $ unset AZURE_EXTENSION_DIR
 $ cd azure-cli-alias-extension
 $ python setup.py bdist_wheel
-$ az extension add --source dist/alias-0.2.0-py2.py3-none-any.whl --yes
+$ az extension add --source dist/alias-0.3.0-py2.py3-none-any.whl --yes
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.2.0
+whl              alias                      0.3.0
 ```
 
 ## Testing and Others
 With [azure-cli virtual environment](https://github.com/Azure/azure-cli/blob/master/doc/configuring_your_machine.md#preparing-your-machine) still activated, you can run tests locally by:
 
 ```bash
-$ cd azure-cli
-$ export PYTHONPATH=$(pwd)/src:${PYTHONPATH}
-$ cd azure-cli-alias-extension
 $ pip install -r requirements.txt
-$ pip install .
-$ python -m unittest discover azext_alias/tests/
+$ python -m unittest discover azext_alias/
 ```
 
 To run pylint:
