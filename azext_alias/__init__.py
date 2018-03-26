@@ -20,7 +20,6 @@ from azext_alias import telemetry
 from azext_alias import _help  # pylint: disable=unused-import
 
 logger = get_logger(__name__)
-cached_reserved_commands = []
 
 
 class AliasCommandLoader(AzCommandsLoader):
@@ -45,6 +44,16 @@ class AliasCommandLoader(AzCommandsLoader):
             c.argument('alias_name', options_list=['--name', '-n'], help='The name of the alias.',
                        completer=get_alias_completer)
             c.argument('alias_command', options_list=['--command', '-c'], help='The command that the alias points to.')
+
+
+class AliasCache(object):  # pylint: disable=too-few-public-methods
+
+    reserved_commands = []
+
+    @staticmethod
+    def cache_reserved_commands(load_cmd_tbl_func):
+        if not AliasCache.reserved_commands:
+            AliasCache.reserved_commands = list(load_cmd_tbl_func([]).keys())
 
 
 @Completer
@@ -74,9 +83,7 @@ def alias_event_handler(_, **kwargs):
         # Cache the reserved commands for validation later
         if args[:2] == ['alias', 'create']:
             load_cmd_tbl_func = kwargs.get('load_cmd_tbl_func', lambda _: {})
-            global cached_reserved_commands  # pylint: disable=global-statement
-            cached_reserved_commands = alias_manager.reserved_commands if alias_manager.reserved_commands \
-                                                                       else load_cmd_tbl_func([]).keys()
+            AliasCache.cache_reserved_commands(load_cmd_tbl_func)
 
         elapsed_time = (timeit.default_timer() - start_time) * 1000
         logger.debug(DEBUG_MSG_WITH_TIMING, args, elapsed_time)
