@@ -16,35 +16,38 @@ from azext_alias.alias import (
     get_config_parser
 )
 from azext_alias._const import DEBUG_MSG_WITH_TIMING
+from azext_alias._validators import process_alias_create_namespace
 from azext_alias import telemetry
 from azext_alias import _help  # pylint: disable=unused-import
 
 logger = get_logger(__name__)
 
 
-class AliasCommandLoader(AzCommandsLoader):
+class AliasExtCommandLoader(AzCommandsLoader):
 
     def __init__(self, cli_ctx=None):
         from azure.cli.core.commands import CliCommandType
         custom_command_type = CliCommandType(operations_tmpl='azext_alias.custom#{}')
-        super(AliasCommandLoader, self).__init__(cli_ctx=cli_ctx,
-                                                 custom_command_type=custom_command_type)
+        super(AliasExtCommandLoader, self).__init__(cli_ctx=cli_ctx,
+                                                    custom_command_type=custom_command_type)
         self.cli_ctx.register_event(EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE, alias_event_handler)
 
     def load_command_table(self, _):
         with self.command_group('alias') as g:
-            g.custom_command('create', 'create_alias')
+            g.custom_command('create', 'create_alias', validator=process_alias_create_namespace)
             g.custom_command('list', 'list_alias')
             g.custom_command('remove', 'remove_alias')
 
         return self.command_table
 
     def load_arguments(self, _):
-        with self.argument_context('alias') as c:
-            c.argument('alias_name', options_list=['--name', '-n'], help='The name of the alias.',
-                       completer=get_alias_completer)
+        with self.argument_context('alias create') as c:
+            c.argument('alias_name', options_list=['--name', '-n'], help='The name of the alias.')
             c.argument('alias_command', options_list=['--command', '-c'], help='The command that the alias points to.')
 
+        with self.argument_context('alias remove') as c:
+            c.argument('alias_name', options_list=['--name', '-n'], help='The name of the alias.',
+                       completer=get_alias_completer)
 
 class AliasCache(object):  # pylint: disable=too-few-public-methods
 
@@ -96,4 +99,4 @@ def alias_event_handler(_, **kwargs):
         telemetry.conclude()
 
 
-COMMAND_LOADER_CLS = AliasCommandLoader
+COMMAND_LOADER_CLS = AliasExtCommandLoader

@@ -45,42 +45,6 @@ class AliasCustomCommandTest(unittest.TestCase):
     def test_create_alias_pos_arg_with_filter_and_addtional_processing(self):
         create_alias('test {{ arg }}', 'account {{ arg.replace("https://", "") | upper }}')
 
-    def test_create_alias_non_existing_command(self):
-        with self.assertRaises(CLIError):
-            create_alias('test', 'non existing command')
-
-    def test_create_alias_empty_alias_name(self):
-        with self.assertRaises(CLIError):
-            create_alias('', 'account')
-
-    def test_create_alias_empty_alias_command(self):
-        with self.assertRaises(CLIError):
-            create_alias('ac', '')
-
-    def test_create_alias_non_existing_commands_with_pos_arg(self):
-        with self.assertRaises(CLIError):
-            create_alias('test {{ arg }}', 'account list {{ arg }}')
-
-    def test_create_alias_inconsistent_pos_arg_name(self):
-        with self.assertRaises(CLIError):
-            create_alias('test {{ arg }}', 'account {{ ar }}')
-
-    def test_create_alias_pos_arg_only(self):
-        with self.assertRaises(CLIError):
-            create_alias('test {{ arg }}', '{{ arg }}')
-
-    def test_create_alias_inconsistent_number_pos_arg(self):
-        with self.assertRaises(CLIError):
-            create_alias('test {{ arg_1 }} {{ arg_2 }}', 'account {{ arg_2 }}')
-
-    def test_create_alias_lvl_error(self):
-        with self.assertRaises(CLIError):
-            create_alias('network', 'account list')
-
-    def test_create_alias_lvl_error_with_pos_arg(self):
-        with self.assertRaises(CLIError):
-            create_alias('account {{ test }}', 'dns {{ test }}')
-
     def test_list_alias(self):
         mock_alias_table = get_config_parser()
         mock_alias_table.add_section('ac')
