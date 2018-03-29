@@ -11,7 +11,7 @@ from mock import Mock
 from knack.util import CLIError
 
 import azext_alias
-from azext_alias.alias import get_config_parser
+from azext_alias.util import get_config_parser
 from azext_alias.tests._const import TEST_RESERVED_COMMANDS
 from azext_alias.custom import (
     create_alias,
@@ -24,7 +24,7 @@ class AliasCustomCommandTest(unittest.TestCase):
 
     @classmethod
     def setUp(cls):
-        azext_alias.AliasCache.reserved_commands = TEST_RESERVED_COMMANDS
+        azext_alias.cached_reserved_commands = TEST_RESERVED_COMMANDS
         azext_alias.custom._commit_change = Mock()
 
     def test_create_alias(self):
@@ -49,14 +49,14 @@ class AliasCustomCommandTest(unittest.TestCase):
         mock_alias_table = get_config_parser()
         mock_alias_table.add_section('ac')
         mock_alias_table.set('ac', 'command', 'account')
-        azext_alias.custom._get_alias_table = Mock(return_value=mock_alias_table)
+        azext_alias.custom.get_alias_table = Mock(return_value=mock_alias_table)
         self.assertListEqual([{'alias': 'ac', 'command': 'account'}], list_alias())
 
     def test_list_alias_key_misspell(self):
         mock_alias_table = get_config_parser()
         mock_alias_table.add_section('ac')
         mock_alias_table.set('ac', 'cmmand', 'account')
-        azext_alias.custom._get_alias_table = Mock(return_value=mock_alias_table)
+        azext_alias.custom.get_alias_table = Mock(return_value=mock_alias_table)
         self.assertListEqual([], list_alias())
 
     def test_list_alias_multiple_alias(self):
@@ -65,14 +65,14 @@ class AliasCustomCommandTest(unittest.TestCase):
         mock_alias_table.set('ac', 'command', 'account')
         mock_alias_table.add_section('dns')
         mock_alias_table.set('dns', 'command', 'network dns')
-        azext_alias.custom._get_alias_table = Mock(return_value=mock_alias_table)
+        azext_alias.custom.get_alias_table = Mock(return_value=mock_alias_table)
         self.assertListEqual([{'alias': 'ac', 'command': 'account'}, {'alias': 'dns', 'command': 'network dns'}], list_alias())
 
     def test_remove_alias_remove_non_existing_alias(self):
         mock_alias_table = get_config_parser()
         mock_alias_table.add_section('ac')
         mock_alias_table.set('ac', 'command', 'account')
-        azext_alias.custom._get_alias_table = Mock(return_value=mock_alias_table)
+        azext_alias.custom.get_alias_table = Mock(return_value=mock_alias_table)
         with self.assertRaises(CLIError):
             remove_alias('dns')
 

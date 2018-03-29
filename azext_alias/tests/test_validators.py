@@ -49,7 +49,7 @@ class TestValidators(unittest.TestCase):
             process_alias_create_namespace(MockNamespace('account {{ test }}', 'dns {{ test }}'))
 
 
-class MockNamespace(object):
+class MockNamespace(object):  # pylint: disable=too-few-public-methods
 
     def __init__(self, alias_name, alias_command):
         self.alias_name = alias_name

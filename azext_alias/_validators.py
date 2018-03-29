@@ -22,6 +22,12 @@ from azext_alias.alias import AliasManager
 
 
 def process_alias_create_namespace(namespace):
+    """
+    Validate input arguments when the user invokes 'az alias create'.
+
+    Args:
+        namespace: argparse namespace object.
+    """
     _validate_alias_name(namespace.alias_name)
     _validate_alias_command(namespace.alias_command)
     _validate_alias_command_level(namespace.alias_name, namespace.alias_command)
@@ -62,7 +68,7 @@ def _validate_alias_command(alias_command):
 
     # Extract possible CLI commands and validate
     command_to_validate = ' '.join(split_command[:boundary_index]).lower()
-    for command in azext_alias.AliasCache.reserved_commands:
+    for command in azext_alias.cached_reserved_commands:
         if re.match(r'([a-z\-]*\s)*{}($|\s)'.format(command_to_validate), command):
             return
 
@@ -101,13 +107,13 @@ def _validate_alias_command_level(alias, command):
         alias: The name of the alias.
         command: The command that the alias points to.
     """
-    alias_collision_table = AliasManager.build_collision_table([alias], azext_alias.AliasCache.reserved_commands)
+    alias_collision_table = AliasManager.build_collision_table([alias], azext_alias.cached_reserved_commands)
 
     # Alias is not a reserved command, so it can point to any command
     if not alias_collision_table:
         return
 
-    command_collision_table = AliasManager.build_collision_table([command], azext_alias.AliasCache.reserved_commands)
+    command_collision_table = AliasManager.build_collision_table([command], azext_alias.cached_reserved_commands)
     alias_collision_levels = alias_collision_table.get(alias.split()[0], [])
     command_collision_levels = command_collision_table.get(command.split()[0], [])
 
