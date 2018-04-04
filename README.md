@@ -17,7 +17,7 @@ Run the following to verify your installation:
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.3.0
+whl              alias                      0.4.0
 ```
 
 To add an alias using Azure CLI:
@@ -35,6 +35,18 @@ To directly alter the alias configuration file on Windows, change the directory 
 For the alias command specification, pelase visit [az-alias-command-spec](https://github.com/chewong/azure-cli-alias-extension/blob/dev/doc/az-alias-command-spec.md).
 
 For the configuration file specification, please visit [az-alias-spec](https://gist.github.com/chewong/2afb67374d700b34015d146f63a79b15)
+
+## Tab Completion
+The alias extension also provides tab completion on bash and interactive mode.
+
+```
+$ az alias create -n grp -c group
+$ az alias create -n c -c create
+$ az gr<tab><tab>
+group  grp
+$ az grp c --location japan<tab><tab>
+japaneast  japanwest
+```
 
 ## Developing
 1. Set up your Azure CLI development environment:
@@ -57,11 +69,11 @@ Before building locally, make sure you have [azure-cli virtual environment](http
 $ unset AZURE_EXTENSION_DIR
 $ cd azure-cli-alias-extension
 $ python setup.py bdist_wheel
-$ az extension add --source dist/alias-0.3.0-py2.py3-none-any.whl --yes
+$ az extension add --source dist/alias-0.4.0-py2.py3-none-any.whl --yes
 $ az extension list -otable
 ExtensionType    Name                       Version
 ---------------  -------------------------  ---------
-whl              alias                      0.3.0
+whl              alias                      0.4.0
 ```
 
 ## Testing and Others
