@@ -10,6 +10,7 @@ function title {
 
 # https://github.com/Azure/azure-cli-extensions/blob/master/scripts/ci/test_source.sh#L8
 title "Installing azure-cli-testsdk and azure-cli..."
+pip install --pre azure-cli --extra-index-url https://azurecliprod.blob.core.windows.net/edge
 pip install "git+https://github.com/Azure/azure-cli@dev#egg=azure-cli-testsdk&subdirectory=src/azure-cli-testsdk" -q
 
 title 'Installing dependencies...'
