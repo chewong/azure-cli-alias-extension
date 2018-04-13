@@ -108,8 +108,20 @@ def _validate_alias_command(alias_command):
     if not alias_command:
         raise CLIError(EMPTY_ALIAS_ERROR)
 
-    if not _rudimentary_get_command(shlex.split(alias_command)):
-        raise CLIError(INVALID_ALIAS_COMMAND_ERROR.format(alias_command))
+    split_command = shlex.split(alias_command)
+    boundary_index = len(split_command)
+    for i, subcommand in enumerate(split_command):
+        if not re.match('^[a-z]', subcommand.lower()) or i > COLLISION_CHECK_LEVEL_DEPTH:
+            boundary_index = i
+            break
+
+    # Extract possible CLI commands and validate
+    command_to_validate = ' '.join(split_command[:boundary_index]).lower()
+    for command in azext_alias.cached_reserved_commands:
+        if re.match(r'([a-z\-]*\s)*{}($|\s)'.format(command_to_validate), command):
+            return
+
+    _validate_positional_arguments(shlex.split(alias_command))
 
 
 def _validate_pos_args_syntax(alias_name, alias_command):
@@ -194,9 +206,12 @@ def _validate_alias_file_content(alias_file_path, url=''):
         raise CLIError(error_msg)
 
 
-def _rudimentary_get_command(args):
+def _validate_positional_arguments(args):
     """
-    Rudimentary parsing to get the command.
+    To validate the positional argument feature - https://github.com/Azure/azure-cli/pull/6055.
+    Assuming that unknown commands are positional arguments immediately
+    led by words that only appear at the end of the commands
+
     Slight modification of
     https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/commands/__init__.py#L356-L373
 
@@ -213,18 +228,12 @@ def _rudimentary_get_command(args):
         else:
             break
 
-    def _find_args(args):
-        search = ' '.join(args)
-        for reserved_command in azext_alias.cached_reserved_commands:
-            # Check if the search term is part of a reserved command
-            if reserved_command == search or \
-                    any([x in reserved_command for x in [search + ' ', ' ' + search, ' ' + search + ' ']]):
-                return True
-        return False
+    while nouns:
+        search = ' '.join(nouns)
+        # Since the command name may be immediately followed by a positional arg, strip those off
+        if not next((x for x in azext_alias.cached_reserved_commands if x.endswith(search)), False):
+            del nouns[-1]
+        else:
+            return
 
-
-    # Since the command name may be immediately followed by a positional arg, strip those off
-    while nouns and not _find_args(nouns):
-        del nouns[-1]
-
-    return ' '.join(nouns)
+    raise CLIError(INVALID_ALIAS_COMMAND_ERROR.format(' '.join(args)))
