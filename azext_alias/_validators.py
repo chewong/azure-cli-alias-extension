@@ -70,7 +70,7 @@ def process_alias_export_namespace(namespace):
     Validate input arguments when the user invokes 'az alias export'.
 
     Args:
-            namespace: argparse namespace object.
+        namespace: argparse namespace object.
     """
     namespace.export_path = os.path.abspath(namespace.export_path)
     if os.path.isfile(namespace.export_path):
@@ -108,21 +108,8 @@ def _validate_alias_command(alias_command):
     if not alias_command:
         raise CLIError(EMPTY_ALIAS_ERROR)
 
-    # Boundary index is the index at which named argument or positional argument starts
-    split_command = shlex.split(alias_command)
-    boundary_index = len(split_command)
-    for i, subcommand in enumerate(split_command):
-        if not re.match('^[a-z]', subcommand.lower()) or i > COLLISION_CHECK_LEVEL_DEPTH:
-            boundary_index = i
-            break
-
-    # Extract possible CLI commands and validate
-    command_to_validate = ' '.join(split_command[:boundary_index]).lower()
-    for command in azext_alias.cached_reserved_commands:
-        if re.match(r'([a-z\-]*\s)*{}($|\s)'.format(command_to_validate), command):
-            return
-
-    raise CLIError(INVALID_ALIAS_COMMAND_ERROR.format(command_to_validate if command_to_validate else alias_command))
+    if not _rudimentary_get_command(shlex.split(alias_command)):
+        raise CLIError(INVALID_ALIAS_COMMAND_ERROR.format(alias_command))
 
 
 def _validate_pos_args_syntax(alias_name, alias_command):
@@ -205,3 +192,39 @@ def _validate_alias_file_content(alias_file_path, url=''):
         error_msg = CONFIG_PARSING_ERROR % AliasManager.process_exception_message(exception)
         error_msg = error_msg.replace(alias_file_path, url or alias_file_path)
         raise CLIError(error_msg)
+
+
+def _rudimentary_get_command(args):
+    """
+    Rudimentary parsing to get the command.
+    Slight modification of
+    https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/commands/__init__.py#L356-L373
+
+    Args:
+        args: The arguments that the user inputs in the terminal.
+
+    Returns:
+        Rudimentary parsed arguments.
+    """
+    nouns = []
+    for arg in args:
+        if not arg.startswith('-') or not arg.startswith('{{'):
+            nouns.append(arg)
+        else:
+            break
+
+    def _find_args(args):
+        search = ' '.join(args)
+        for reserved_command in azext_alias.cached_reserved_commands:
+            # Check if the search term is part of a reserved command
+            if reserved_command == search or \
+                    any([x in reserved_command for x in [search + ' ', ' ' + search, ' ' + search + ' ']]):
+                return True
+        return False
+
+
+    # Since the command name may be immediately followed by a positional arg, strip those off
+    while nouns and not _find_args(nouns):
+        del nouns[-1]
+
+    return ' '.join(nouns)

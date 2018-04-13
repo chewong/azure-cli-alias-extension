@@ -36,7 +36,7 @@ def create_alias(alias_name, alias_command):
     _commit_change(alias_table)
 
 
-def export_aliases(export_path=os.path.join(os.getcwd(), ALIAS_FILE_NAME), exclusions=None):
+def export_aliases(export_path=os.path.abspath(ALIAS_FILE_NAME), exclusions=None):
     """
     Export all registered aliases to a given path, as an INI configuration file.
 
@@ -64,7 +64,7 @@ def import_aliases(alias_source):
     alias_table = get_alias_table()
     if is_url(alias_source):
         alias_source = retrieve_file_from_url(alias_source)
-        alias_table.read(os.path.abspath(alias_source))
+        alias_table.read(alias_source)
         os.remove(alias_source)
     else:
         alias_table.read(alias_source)
@@ -107,6 +107,9 @@ def remove_alias(alias_names):
 
 
 def remove_all_aliases():
+    """
+    Remove all registered aliases.
+    """
     _commit_change(get_config_parser())
 
 
@@ -117,7 +120,7 @@ def _commit_change(alias_table, export_path=None, post_commit=True):
 
     Args:
         alias_table: The alias table to commit.
-        export_path: The path to export the aliases to.
+        export_path: The path to export the aliases to. Default: GLOBAL_ALIAS_PATH.
         post_commit: True if we want to perform some extra actions after writing alias to file.
     """
     with open(export_path or GLOBAL_ALIAS_PATH, 'w+') as alias_config_file:
